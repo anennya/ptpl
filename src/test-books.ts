@@ -2,10 +2,10 @@ import { supabase } from './lib/supabase';
 
 const fetchBooks = async () => {
   try {
-    console.log('Connecting to Supabase...');
-    console.log('URL:', process.env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
+    process.stdout.write('Connecting to Supabase...\n');
+    process.stdout.write(`URL: ${process.env.VITE_SUPABASE_URL ? 'Set' : 'Not set'}\n`);
     
-    console.log('Fetching books...');
+    process.stdout.write('Fetching books...\n');
     const { data, error } = await supabase
       .from('books')
       .select('*')
@@ -13,26 +13,26 @@ const fetchBooks = async () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Supabase Error:', error.message);
-      console.error('Error Details:', error);
+      process.stdout.write('Supabase Error: ' + error.message + '\n');
+      process.stdout.write('Error Details: ' + JSON.stringify(error, null, 2) + '\n');
       return;
     }
 
     if (!data || data.length === 0) {
-      console.log('No books found in the database');
+      process.stdout.write('No books found in the database\n');
       return;
     }
 
-    console.log('Found', data.length, 'books:');
-    console.log(JSON.stringify(data, null, 2));
+    process.stdout.write(`Found ${data.length} books:\n`);
+    process.stdout.write(JSON.stringify(data, null, 2) + '\n');
     
   } catch (err) {
-    console.error('Unexpected error:', err);
+    process.stdout.write('Unexpected error: ' + err + '\n');
   }
 };
 
 // Execute and handle promise rejection
 fetchBooks().catch(err => {
-  console.error('Fatal error:', err);
+  process.stdout.write('Fatal error: ' + err + '\n');
   process.exit(1);
 });
