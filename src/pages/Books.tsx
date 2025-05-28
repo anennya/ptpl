@@ -27,33 +27,44 @@ const Books: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
+    console.log('Books component mounted or dependencies changed');
     loadBooks();
   }, [searchQuery, filterCategory, filterStatus]);
 
   const loadBooks = async () => {
+    console.log('Loading books...');
+    console.log('Current filters:', { searchQuery, filterCategory, filterStatus });
+    
     setIsLoading(true);
     setError(null);
     try {
       let filteredBooks: Book[] = [];
       
       if (searchQuery.trim()) {
+        console.log('Searching books with query:', searchQuery);
         filteredBooks = await searchBooks(searchQuery);
       } else {
+        console.log('Fetching all books');
         filteredBooks = await getAllBooks();
       }
       
+      console.log('Initial books loaded:', filteredBooks);
+      
       if (filterCategory !== 'All') {
+        console.log('Filtering by category:', filterCategory);
         filteredBooks = filteredBooks.filter(book => book.category === filterCategory);
       }
       
       if (filterStatus !== 'All') {
+        console.log('Filtering by status:', filterStatus);
         filteredBooks = filteredBooks.filter(book => book.status === filterStatus);
       }
       
+      console.log('Final filtered books:', filteredBooks);
       setBooks(filteredBooks);
     } catch (err) {
+      console.error('Error in loadBooks:', err);
       setError('Failed to load books. Please try again.');
-      console.error('Error loading books:', err);
     } finally {
       setIsLoading(false);
     }
