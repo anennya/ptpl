@@ -5,14 +5,14 @@ import { Book } from '../types';
 export const getAllBooks = async (): Promise<Book[]> => {
   console.log('Fetching all books from Supabase...');
   const { data, error } = await supabase
-    .from('books')
+    .from('books_old')  // Use the _old table for now
     .select('*')
     .eq('is_deleted', false)
     .order('title');
     
   if (error) {
     console.error('Error fetching books:', error);
-    return [];
+    throw error;
   }
   
   console.log('Raw books data from Supabase:', data);
@@ -22,7 +22,7 @@ export const getAllBooks = async (): Promise<Book[]> => {
     title: book.title,
     author: book.author || '',
     isbn: book.isbn || '',
-    category: book.category,
+    category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
     borrowCount: 0,
@@ -36,7 +36,7 @@ export const getAllBooks = async (): Promise<Book[]> => {
 // Get book by ID
 export const getBookById = async (id: string): Promise<Book | null> => {
   const { data, error } = await supabase
-    .from('books')
+    .from('books_old')
     .select('*')
     .eq('id', id)
     .single();
@@ -51,10 +51,10 @@ export const getBookById = async (id: string): Promise<Book | null> => {
     title: data.title,
     author: data.author || '',
     isbn: data.isbn || '',
-    category: data.category,
+    category: data.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: data.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: data.currently_issued_to,
-    borrowCount: 0, // We'll need to calculate this from loans table
+    borrowCount: 0,
     coverUrl: data.cover_image_url,
   };
 };
@@ -62,7 +62,7 @@ export const getBookById = async (id: string): Promise<Book | null> => {
 // Search books
 export const searchBooks = async (query: string): Promise<Book[]> => {
   const { data, error } = await supabase
-    .from('books')
+    .from('books_old')
     .select('*')
     .eq('is_deleted', false)
     .or(`title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%`)
@@ -70,7 +70,7 @@ export const searchBooks = async (query: string): Promise<Book[]> => {
     
   if (error) {
     console.error('Error searching books:', error);
-    return [];
+    throw error;
   }
   
   return data.map(book => ({
@@ -78,7 +78,7 @@ export const searchBooks = async (query: string): Promise<Book[]> => {
     title: book.title,
     author: book.author || '',
     isbn: book.isbn || '',
-    category: book.category,
+    category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
     borrowCount: 0,
@@ -89,7 +89,7 @@ export const searchBooks = async (query: string): Promise<Book[]> => {
 // Add new book
 export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<Book | null> => {
   const { data, error } = await supabase
-    .from('books')
+    .from('books_old')
     .insert([{
       title: book.title,
       author: book.author,
@@ -103,7 +103,7 @@ export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<B
     
   if (error || !data) {
     console.error('Error adding book:', error);
-    return null;
+    throw error;
   }
   
   return {
@@ -111,7 +111,7 @@ export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<B
     title: data.title,
     author: data.author || '',
     isbn: data.isbn || '',
-    category: data.category,
+    category: data.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: 'Available',
     borrowCount: 0,
     coverUrl: data.cover_image_url,
@@ -121,7 +121,7 @@ export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<B
 // Update book
 export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
   const { data, error } = await supabase
-    .from('books')
+    .from('books_old')
     .update({
       title: updatedBook.title,
       author: updatedBook.author,
@@ -136,7 +136,7 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
     
   if (error || !data) {
     console.error('Error updating book:', error);
-    return null;
+    throw error;
   }
   
   return {
@@ -144,7 +144,7 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
     title: data.title,
     author: data.author || '',
     isbn: data.isbn || '',
-    category: data.category,
+    category: data.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: data.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: data.currently_issued_to,
     borrowCount: 0,
@@ -155,13 +155,13 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
 // Delete book (soft delete)
 export const deleteBook = async (id: string): Promise<boolean> => {
   const { error } = await supabase
-    .from('books')
+    .from('books_old')
     .update({ is_deleted: true })
     .eq('id', id);
     
   if (error) {
     console.error('Error deleting book:', error);
-    return false;
+    throw error;
   }
   
   return true;
@@ -170,7 +170,7 @@ export const deleteBook = async (id: string): Promise<boolean> => {
 // Get books by category
 export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | 'Children'): Promise<Book[]> => {
   const { data, error } = await supabase
-    .from('books')
+    .from('books_old')
     .select('*')
     .eq('category', category)
     .eq('is_deleted', false)
@@ -178,7 +178,7 @@ export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | '
     
   if (error) {
     console.error('Error fetching books by category:', error);
-    return [];
+    throw error;
   }
   
   return data.map(book => ({
@@ -186,7 +186,7 @@ export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | '
     title: book.title,
     author: book.author || '',
     isbn: book.isbn || '',
-    category: book.category,
+    category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
     borrowCount: 0,
@@ -197,14 +197,14 @@ export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | '
 // Get available books count
 export const getAvailableBooksCount = async (): Promise<number> => {
   const { count, error } = await supabase
-    .from('books')
+    .from('books_old')
     .select('*', { count: 'exact', head: true })
     .eq('is_deleted', false)
     .gt('available_quantity', 0);
     
   if (error) {
     console.error('Error counting available books:', error);
-    return 0;
+    throw error;
   }
   
   return count || 0;
@@ -213,14 +213,14 @@ export const getAvailableBooksCount = async (): Promise<number> => {
 // Get borrowed books count
 export const getBorrowedBooksCount = async (): Promise<number> => {
   const { count, error } = await supabase
-    .from('books')
+    .from('books_old')
     .select('*', { count: 'exact', head: true })
     .eq('is_deleted', false)
     .eq('available_quantity', 0);
     
   if (error) {
     console.error('Error counting borrowed books:', error);
-    return 0;
+    throw error;
   }
   
   return count || 0;
@@ -239,7 +239,7 @@ export const getOverdueBooks = async (): Promise<Book[]> => {
     
   if (error) {
     console.error('Error fetching overdue books:', error);
-    return [];
+    throw error;
   }
   
   return data.map(loan => ({
@@ -247,7 +247,7 @@ export const getOverdueBooks = async (): Promise<Book[]> => {
     title: loan.book.title,
     author: loan.book.author || '',
     isbn: loan.book.isbn || '',
-    category: loan.book.category,
+    category: loan.book.category as 'Fiction' | 'Non-Fiction' | 'Children',
     status: 'Borrowed',
     borrowedBy: loan.book.currently_issued_to,
     dueDate: new Date(loan.due_on),
@@ -266,7 +266,7 @@ export const getMostPopularBooks = async (limit: number = 5): Promise<Book[]> =>
     
   if (error) {
     console.error('Error fetching popular books:', error);
-    return [];
+    throw error;
   }
   
   // Count loans per book
@@ -282,7 +282,7 @@ export const getMostPopularBooks = async (limit: number = 5): Promise<Book[]> =>
       title: book.title,
       author: book.author || '',
       isbn: book.isbn || '',
-      category: book.category,
+      category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
       status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
       borrowedBy: book.currently_issued_to,
       borrowCount: bookCounts[book.id] || 0,
