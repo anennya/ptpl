@@ -15,12 +15,12 @@ export interface Book {
   title: string;
   author: string;
   isbn: string;
-  category: 'Fiction' | 'Non-Fiction' | 'Children';
+  category: string; // Changed from enum to string to match database
   status: 'Available' | 'Borrowed' | 'Reserved' | 'Lost';
   borrowedBy?: string;
   dueDate?: Date;
   borrowCount: number;
-  coverUrl?: string; // Added coverUrl field
+  coverUrl?: string;
 }
 
 // Circulation types
