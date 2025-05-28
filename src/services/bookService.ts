@@ -3,6 +3,7 @@ import { Book } from '../types';
 
 // Get all books
 export const getAllBooks = async (): Promise<Book[]> => {
+  console.log('Fetching all books from Supabase...');
   const { data, error } = await supabase
     .from('books')
     .select('*')
@@ -14,7 +15,9 @@ export const getAllBooks = async (): Promise<Book[]> => {
     return [];
   }
   
-  return data.map(book => ({
+  console.log('Raw books data from Supabase:', data);
+  
+  const transformedBooks = data.map(book => ({
     id: book.id,
     title: book.title,
     author: book.author || '',
@@ -22,9 +25,12 @@ export const getAllBooks = async (): Promise<Book[]> => {
     category: book.category,
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
-    borrowCount: 0, // We'll need to calculate this from loans table
+    borrowCount: 0,
     coverUrl: book.cover_image_url,
   }));
+
+  console.log('Transformed books:', transformedBooks);
+  return transformedBooks;
 };
 
 // Get book by ID
