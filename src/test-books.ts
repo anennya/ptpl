@@ -2,10 +2,18 @@ import { supabase } from './lib/supabase';
 
 const fetchBooks = async () => {
   try {
-    process.stdout.write('Connecting to Supabase...\n');
-    process.stdout.write(`URL: ${process.env.VITE_SUPABASE_URL ? 'Set' : 'Not set'}\n`);
+    // Check environment variables
+    console.log('Checking environment variables...');
+    console.log('SUPABASE_URL:', process.env.VITE_SUPABASE_URL ? '✓ Set' : '✗ Not set');
+    console.log('SUPABASE_ANON_KEY:', process.env.VITE_SUPABASE_ANON_KEY ? '✓ Set' : '✗ Not set');
     
-    process.stdout.write('Fetching books...\n');
+    if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+      throw new Error('Required environment variables are missing');
+    }
+
+    console.log('\nConnecting to Supabase...');
+    
+    console.log('Fetching books...');
     const { data, error } = await supabase
       .from('books')
       .select('*')
@@ -13,26 +21,26 @@ const fetchBooks = async () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      process.stdout.write('Supabase Error: ' + error.message + '\n');
-      process.stdout.write('Error Details: ' + JSON.stringify(error, null, 2) + '\n');
+      console.error('Supabase Error:', error.message);
+      console.error('Error Details:', error);
       return;
     }
 
     if (!data || data.length === 0) {
-      process.stdout.write('No books found in the database\n');
+      console.log('No books found in the database');
       return;
     }
 
-    process.stdout.write(`Found ${data.length} books:\n`);
-    process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+    console.log(`\nFound ${data.length} books:`);
+    console.table(data);
     
   } catch (err) {
-    process.stdout.write('Unexpected error: ' + err + '\n');
+    console.error('Unexpected error:', err);
   }
 };
 
 // Execute and handle promise rejection
 fetchBooks().catch(err => {
-  process.stdout.write('Fatal error: ' + err + '\n');
+  console.error('Fatal error:', err);
   process.exit(1);
 });
