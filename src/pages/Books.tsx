@@ -77,11 +77,15 @@ const Books: React.FC = () => {
     setScannerError(null);
     try {
       const bookData = await fetchBookByISBN(isbn);
-      setNewBook(prev => ({
-        ...prev,
-        ...bookData
-      }));
-      setIsScannerActive(false);
+      if (bookData) {
+        setNewBook(prev => ({
+          ...prev,
+          ...bookData
+        }));
+        setIsScannerActive(false);
+      } else {
+        setScannerError('Could not find book information. Please enter details manually.');
+      }
     } catch (err) {
       setScannerError('Failed to fetch book data. Please try again or enter details manually.');
       console.error('Error fetching book data:', err);
@@ -92,6 +96,7 @@ const Books: React.FC = () => {
 
   const handleScannerError = (error: string) => {
     setScannerError(error);
+    setIsScannerActive(false);
   };
 
   const handleAddBook = async (e: React.FormEvent) => {
@@ -99,17 +104,27 @@ const Books: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await addBook(newBook);
-      setIsAddModalOpen(false);
-      setShowSuccess(true);
-      setNewBook({
-        title: '',
-        author: '',
-        isbn: '',
-        category: 'Fiction',
-        coverUrl: ''
+      const result = await addBook({
+        ...newBook,
+        status: 'Available',
+        coverUrl: newBook.coverUrl || 'https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg'
       });
-      loadBooks();
+      
+      if (result) {
+        setIsAddModalOpen(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+        setNewBook({
+          title: '',
+          author: '',
+          isbn: '',
+          category: 'Fiction',
+          coverUrl: ''
+        });
+        loadBooks();
+      } else {
+        throw new Error('Failed to add book');
+      }
     } catch (err) {
       setError('Failed to add book. Please try again.');
       console.error('Error adding book:', err);
