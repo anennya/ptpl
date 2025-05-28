@@ -15,30 +15,43 @@ const BookDetail: React.FC = () => {
   const [editedBook, setEditedBook] = useState<Partial<Book>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      const bookData = getBookById(id);
-      
-      if (bookData) {
-        setBook(bookData);
-        setEditedBook({
-          title: bookData.title,
-          author: bookData.author,
-          isbn: bookData.isbn,
-          category: bookData.category,
-          status: bookData.status,
-        });
-        
-        // Get borrower details if book is borrowed
-        if (bookData.status === 'Borrowed' && bookData.borrowedBy) {
-          const memberData = getMemberById(bookData.borrowedBy);
-          if (memberData) {
-            setBorrower(memberData);
+    const loadBook = async () => {
+      if (id) {
+        try {
+          const bookData = await getBookById(id);
+          
+          if (bookData) {
+            setBook(bookData);
+            setEditedBook({
+              title: bookData.title,
+              author: bookData.author,
+              isbn: bookData.isbn,
+              category: bookData.category,
+              status: bookData.status,
+            });
+            
+            // Get borrower details if book is borrowed
+            if (bookData.status === 'Borrowed' && bookData.borrowedBy) {
+              const memberData = await getMemberById(bookData.borrowedBy);
+              if (memberData) {
+                setBorrower(memberData);
+              }
+            }
           }
+        } catch (err) {
+          setError('Failed to load book details');
+          console.error('Error loading book:', err);
+        } finally {
+          setIsLoading(false);
         }
       }
-    }
+    };
+
+    loadBook();
   }, [id]);
 
   const handleInputChange = (
@@ -48,55 +61,83 @@ const BookDetail: React.FC = () => {
     setEditedBook(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleUpdateBook = (e: React.FormEvent) => {
+  const handleUpdateBook = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (book && editedBook) {
-      const updatedBook = {
-        ...book,
-        title: editedBook.title || book.title,
-        author: editedBook.author || book.author,
-        isbn: editedBook.isbn || book.isbn,
-        category: editedBook.category as 'Fiction' | 'Non-Fiction' | 'Children' || book.category,
-        status: editedBook.status as 'Available' | 'Borrowed' | 'Reserved' | 'Lost' || book.status,
-      };
-      
-      // If changing status from Borrowed to something else, clear borrower info
-      if (book.status === 'Borrowed' && updatedBook.status !== 'Borrowed') {
-        updatedBook.borrowedBy = undefined;
-        updatedBook.dueDate = undefined;
+      try {
+        const updatedBook = {
+          ...book,
+          title: editedBook.title || book.title,
+          author: editedBook.author || book.author,
+          isbn: editedBook.isbn || book.isbn,
+          category: editedBook.category || book.category,
+          status: editedBook.status as 'Available' | 'Borrowed' | 'Reserved' | 'Lost' || book.status,
+        };
+        
+        // If changing status from Borrowed to something else, clear borrower info
+        if (book.status === 'Borrowed' && updatedBook.status !== 'Borrowed') {
+          updatedBook.borrowedBy = undefined;
+          updatedBook.dueDate = undefined;
+        }
+        
+        const result = await updateBook(updatedBook);
+        if (result) {
+          setBook(result);
+          setIsEditModalOpen(false);
+          
+          // Show success message
+          setSuccessMessage('Book updated successfully!');
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 3000);
+        }
+      } catch (err) {
+        setError('Failed to update book');
+        console.error('Error updating book:', err);
       }
-      
-      updateBook(updatedBook);
-      setBook(updatedBook);
-      setIsEditModalOpen(false);
-      
-      // Show success message
-      setSuccessMessage('Book updated successfully!');
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
     }
   };
 
-  const handleDeleteBook = () => {
+  const handleDeleteBook = async () => {
     if (id) {
-      const success = deleteBook(id);
-      
-      if (success) {
-        navigate('/books');
-      } else {
-        setIsDeleteModalOpen(false);
-        setSuccessMessage('Cannot delete a borrowed book.');
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
+      try {
+        const success = await deleteBook(id);
+        
+        if (success) {
+          navigate('/books');
+        } else {
+          setIsDeleteModalOpen(false);
+          setSuccessMessage('Cannot delete a borrowed book.');
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 3000);
+        }
+      } catch (err) {
+        setError('Failed to delete book');
+        console.error('Error deleting book:', err);
       }
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-xl text-gray-500">Loading book details...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-xl text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   if (!book) {
     return (
       <div className="flex justify-center items-center h-64">
-        <p className="text-xl text-gray-500">Loading book details...</p>
+        <p className="text-xl text-gray-500">Book not found</p>
       </div>
     );
   }
@@ -166,7 +207,7 @@ const BookDetail: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
               <div>
                 <p className="text-gray-600 mb-1">ISBN</p>
-                <p className="text-lg">{book.isbn}</p>
+                <p className="text-lg">{book.isbn || 'Not available'}</p>
               </div>
               
               <div>
