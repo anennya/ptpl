@@ -5,7 +5,7 @@ import { Book } from '../types';
 export const getAllBooks = async (): Promise<Book[]> => {
   console.log('Fetching all books from Supabase...');
   const { data, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .select('*')
     .eq('is_deleted', false)
     .order('title');
@@ -19,10 +19,10 @@ export const getAllBooks = async (): Promise<Book[]> => {
   
   const transformedBooks = data.map(book => ({
     id: book.id,
-    title: book.title,
+    title: book.title || '',
     author: book.author || '',
     isbn: book.isbn || '',
-    category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: book.category || 'Fiction',
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
     borrowCount: 0,
@@ -36,7 +36,7 @@ export const getAllBooks = async (): Promise<Book[]> => {
 // Get book by ID
 export const getBookById = async (id: string): Promise<Book | null> => {
   const { data, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .select('*')
     .eq('id', id)
     .single();
@@ -48,10 +48,10 @@ export const getBookById = async (id: string): Promise<Book | null> => {
   
   return {
     id: data.id,
-    title: data.title,
+    title: data.title || '',
     author: data.author || '',
     isbn: data.isbn || '',
-    category: data.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: data.category || 'Fiction',
     status: data.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: data.currently_issued_to,
     borrowCount: 0,
@@ -62,7 +62,7 @@ export const getBookById = async (id: string): Promise<Book | null> => {
 // Search books
 export const searchBooks = async (query: string): Promise<Book[]> => {
   const { data, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .select('*')
     .eq('is_deleted', false)
     .or(`title.ilike.%${query}%,author.ilike.%${query}%,isbn.ilike.%${query}%`)
@@ -75,10 +75,10 @@ export const searchBooks = async (query: string): Promise<Book[]> => {
   
   return data.map(book => ({
     id: book.id,
-    title: book.title,
+    title: book.title || '',
     author: book.author || '',
     isbn: book.isbn || '',
-    category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: book.category || 'Fiction',
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
     borrowCount: 0,
@@ -89,7 +89,7 @@ export const searchBooks = async (query: string): Promise<Book[]> => {
 // Add new book
 export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<Book | null> => {
   const { data, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .insert([{
       title: book.title,
       author: book.author,
@@ -108,10 +108,10 @@ export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<B
   
   return {
     id: data.id,
-    title: data.title,
+    title: data.title || '',
     author: data.author || '',
     isbn: data.isbn || '',
-    category: data.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: data.category || 'Fiction',
     status: 'Available',
     borrowCount: 0,
     coverUrl: data.cover_image_url,
@@ -121,7 +121,7 @@ export const addBook = async (book: Omit<Book, 'id' | 'borrowCount'>): Promise<B
 // Update book
 export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
   const { data, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .update({
       title: updatedBook.title,
       author: updatedBook.author,
@@ -141,10 +141,10 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
   
   return {
     id: data.id,
-    title: data.title,
+    title: data.title || '',
     author: data.author || '',
     isbn: data.isbn || '',
-    category: data.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: data.category || 'Fiction',
     status: data.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: data.currently_issued_to,
     borrowCount: 0,
@@ -155,7 +155,7 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
 // Delete book (soft delete)
 export const deleteBook = async (id: string): Promise<boolean> => {
   const { error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .update({ is_deleted: true })
     .eq('id', id);
     
@@ -170,7 +170,7 @@ export const deleteBook = async (id: string): Promise<boolean> => {
 // Get books by category
 export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | 'Children'): Promise<Book[]> => {
   const { data, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .select('*')
     .eq('category', category)
     .eq('is_deleted', false)
@@ -183,10 +183,10 @@ export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | '
   
   return data.map(book => ({
     id: book.id,
-    title: book.title,
+    title: book.title || '',
     author: book.author || '',
     isbn: book.isbn || '',
-    category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: book.category || 'Fiction',
     status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
     borrowedBy: book.currently_issued_to,
     borrowCount: 0,
@@ -197,7 +197,7 @@ export const getBooksByCategory = async (category: 'Fiction' | 'Non-Fiction' | '
 // Get available books count
 export const getAvailableBooksCount = async (): Promise<number> => {
   const { count, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .select('*', { count: 'exact', head: true })
     .eq('is_deleted', false)
     .gt('available_quantity', 0);
@@ -213,7 +213,7 @@ export const getAvailableBooksCount = async (): Promise<number> => {
 // Get borrowed books count
 export const getBorrowedBooksCount = async (): Promise<number> => {
   const { count, error } = await supabase
-    .from('books')  // Changed from books_old to books
+    .from('books')
     .select('*', { count: 'exact', head: true })
     .eq('is_deleted', false)
     .eq('available_quantity', 0);
@@ -244,10 +244,10 @@ export const getOverdueBooks = async (): Promise<Book[]> => {
   
   return data.map(loan => ({
     id: loan.book.id,
-    title: loan.book.title,
+    title: loan.book.title || '',
     author: loan.book.author || '',
     isbn: loan.book.isbn || '',
-    category: loan.book.category as 'Fiction' | 'Non-Fiction' | 'Children',
+    category: loan.book.category || 'Fiction',
     status: 'Borrowed',
     borrowedBy: loan.book.currently_issued_to,
     dueDate: new Date(loan.due_on),
@@ -279,10 +279,10 @@ export const getMostPopularBooks = async (limit: number = 5): Promise<Book[]> =>
   const uniqueBooks = Array.from(new Set(data.map(loan => loan.book)))
     .map(book => ({
       id: book.id,
-      title: book.title,
+      title: book.title || '',
       author: book.author || '',
       isbn: book.isbn || '',
-      category: book.category as 'Fiction' | 'Non-Fiction' | 'Children',
+      category: book.category || 'Fiction',
       status: book.available_quantity > 0 ? 'Available' : 'Borrowed',
       borrowedBy: book.currently_issued_to,
       borrowCount: bookCounts[book.id] || 0,
