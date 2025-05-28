@@ -59,7 +59,79 @@ const Books: React.FC = () => {
     }
   };
 
-  // ... (previous handler methods remain the same)
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadBooks();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNewBook(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleISBNDetected = async (isbn: string) => {
+    setIsLoading(true);
+    setScannerError(null);
+    try {
+      const bookData = await fetchBookByISBN(isbn);
+      setNewBook(prev => ({
+        ...prev,
+        ...bookData
+      }));
+      setIsScannerActive(false);
+    } catch (err) {
+      setScannerError('Failed to fetch book data. Please try again or enter details manually.');
+      console.error('Error fetching book data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleScannerError = (error: string) => {
+    setScannerError(error);
+  };
+
+  const handleAddBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      await addBook(newBook);
+      setIsAddModalOpen(false);
+      setShowSuccess(true);
+      setNewBook({
+        title: '',
+        author: '',
+        isbn: '',
+        category: 'Fiction',
+        coverUrl: ''
+      });
+      loadBooks();
+    } catch (err) {
+      setError('Failed to add book. Please try again.');
+      console.error('Error adding book:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Available':
+        return 'bg-green-100 text-green-800';
+      case 'Borrowed':
+        return 'bg-blue-100 text-blue-800';
+      case 'Reserved':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Lost':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
