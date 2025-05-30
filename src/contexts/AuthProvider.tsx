@@ -29,43 +29,18 @@ interface AuthProviderProps {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const session = authClient.useSession();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated
-    const checkAuth = async () => {
-      try {
-        const session = await authClient.getSession();
-        if (session && 'user' in session) {
-          setUser(session.user as User);
-        }
-      } catch (error) {
-        console.error("Auth error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  // Get active organization and user roles
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    authClient.organization
-      .getActiveMember()
-      .then((member) => {
-        setUser((prev) => prev ? ({
-          ...prev,
-          member: member as unknown,
-        }) : null);
-      })
-      .catch((error) => {
-        console.error("Failed to get active member:", error);
-      });
-  }, [user]);
+    if (session.data?.user) {
+      setUser(session.data.user as User);
+    } else {
+      setUser(null);
+    }
+    setLoading(session.isPending);
+  }, [session.data, session.isPending]);
 
   const value = {
     user,
