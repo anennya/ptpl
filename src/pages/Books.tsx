@@ -1,70 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, PlusCircle, UserPlus, X, Check, Filter, Camera } from 'lucide-react';
-import { Book } from '../types';
-import { getAllBooks, searchBooks, addBook } from '../services/bookService';
-import { fetchBookByISBN } from '../services/bookApiService';
-import ISBNScanner from '../components/ISBNScanner';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import PermissionGate from "../components/PermissionGate";
+import { Search, PlusCircle, X, Check, Filter, Camera } from "lucide-react";
+import { Book } from "../types";
+import { getAllBooks, searchBooks, addBook } from "../services/bookService";
+import { fetchBookByISBN } from "../services/bookApiService";
+import ISBNScanner from "../components/ISBNScanner";
 
 const Books: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<string>('All');
-  const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [filterCategory, setFilterCategory] = useState<string>("All");
+  const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newBook, setNewBook] = useState({
-    title: '',
-    author: '',
-    isbn: '',
-    category: 'Fiction' as 'Fiction' | 'Non-Fiction' | 'Children',
-    coverUrl: '',
+    title: "",
+    author: "",
+    isbn: "",
+    category: "Fiction" as "Fiction" | "Non-Fiction" | "Children",
+    coverUrl: "",
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    console.log('Books component mounted or dependencies changed');
+    console.log("Books component mounted or dependencies changed");
     loadBooks();
   }, [searchQuery, filterCategory, filterStatus]);
 
   const loadBooks = async () => {
-    console.log('Loading books...');
-    console.log('Current filters:', { searchQuery, filterCategory, filterStatus });
-    
+    console.log("Loading books...");
+    console.log("Current filters:", {
+      searchQuery,
+      filterCategory,
+      filterStatus,
+    });
+
     setIsLoading(true);
     setError(null);
     try {
       let filteredBooks: Book[] = [];
-      
+
       if (searchQuery.trim()) {
-        console.log('Searching books with query:', searchQuery);
+        console.log("Searching books with query:", searchQuery);
         filteredBooks = await searchBooks(searchQuery);
       } else {
-        console.log('Fetching all books');
+        console.log("Fetching all books");
         filteredBooks = await getAllBooks();
       }
-      
-      console.log('Initial books loaded:', filteredBooks);
-      
-      if (filterCategory !== 'All') {
-        console.log('Filtering by category:', filterCategory);
-        filteredBooks = filteredBooks.filter(book => book.category === filterCategory);
+
+      console.log("Initial books loaded:", filteredBooks);
+
+      if (filterCategory !== "All") {
+        console.log("Filtering by category:", filterCategory);
+        filteredBooks = filteredBooks.filter(
+          (book) => book.category === filterCategory,
+        );
       }
-      
-      if (filterStatus !== 'All') {
-        console.log('Filtering by status:', filterStatus);
-        filteredBooks = filteredBooks.filter(book => book.status === filterStatus);
+
+      if (filterStatus !== "All") {
+        console.log("Filtering by status:", filterStatus);
+        filteredBooks = filteredBooks.filter(
+          (book) => book.status === filterStatus,
+        );
       }
-      
-      console.log('Final filtered books:', filteredBooks);
+
+      console.log("Final filtered books:", filteredBooks);
       setBooks(filteredBooks);
     } catch (err) {
-      console.error('Error in loadBooks:', err);
-      setError('Failed to load books. Please try again.');
+      console.error("Error in loadBooks:", err);
+      setError("Failed to load books. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -75,11 +84,13 @@ const Books: React.FC = () => {
     loadBooks();
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
-    setNewBook(prev => ({
+    setNewBook((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -89,17 +100,21 @@ const Books: React.FC = () => {
     try {
       const bookData = await fetchBookByISBN(isbn);
       if (bookData) {
-        setNewBook(prev => ({
+        setNewBook((prev) => ({
           ...prev,
-          ...bookData
+          ...bookData,
         }));
         setIsScannerActive(false);
       } else {
-        setScannerError('Could not find book information. Please enter details manually.');
+        setScannerError(
+          "Could not find book information. Please enter details manually.",
+        );
       }
     } catch (err) {
-      setScannerError('Failed to fetch book data. Please try again or enter details manually.');
-      console.error('Error fetching book data:', err);
+      setScannerError(
+        "Failed to fetch book data. Please try again or enter details manually.",
+      );
+      console.error("Error fetching book data:", err);
     } finally {
       setIsLoading(false);
     }
@@ -117,28 +132,30 @@ const Books: React.FC = () => {
     try {
       const result = await addBook({
         ...newBook,
-        status: 'Available',
-        coverUrl: newBook.coverUrl || 'https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg'
+        status: "Available",
+        coverUrl:
+          newBook.coverUrl ||
+          "https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg",
       });
-      
+
       if (result) {
         setIsAddModalOpen(false);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
         setNewBook({
-          title: '',
-          author: '',
-          isbn: '',
-          category: 'Fiction',
-          coverUrl: ''
+          title: "",
+          author: "",
+          isbn: "",
+          category: "Fiction",
+          coverUrl: "",
         });
         loadBooks();
       } else {
-        throw new Error('Failed to add book');
+        throw new Error("Failed to add book");
       }
     } catch (err) {
-      setError('Failed to add book. Please try again.');
-      console.error('Error adding book:', err);
+      setError("Failed to add book. Please try again.");
+      console.error("Error adding book:", err);
     } finally {
       setIsLoading(false);
     }
@@ -146,22 +163,22 @@ const Books: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Available':
-        return 'bg-green-100 text-green-800';
-      case 'Borrowed':
-        return 'bg-blue-100 text-blue-800';
-      case 'Reserved':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Lost':
-        return 'bg-red-100 text-red-800';
+      case "Available":
+        return "bg-green-100 text-green-800";
+      case "Borrowed":
+        return "bg-blue-100 text-blue-800";
+      case "Reserved":
+        return "bg-yellow-100 text-yellow-800";
+      case "Lost":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {books.map(book => (
+      {books.map((book) => (
         <Link
           to={`/books/${book.id}`}
           key={book.id}
@@ -169,12 +186,17 @@ const Books: React.FC = () => {
         >
           <div className="aspect-[3/4] relative overflow-hidden">
             <img
-              src={book.coverUrl || 'https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg'}
+              src={
+                book.coverUrl ||
+                "https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg"
+              }
               alt={book.title}
               className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-200"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-              <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(book.status)}`}>
+              <span
+                className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(book.status)}`}
+              >
                 {book.status}
               </span>
             </div>
@@ -186,7 +208,9 @@ const Books: React.FC = () => {
             <p className="text-gray-600 mt-1">{book.author}</p>
             <div className="mt-2 flex items-center justify-between">
               <span className="text-sm text-gray-500">{book.category}</span>
-              <span className="text-sm text-gray-500">{book.borrowCount} borrows</span>
+              <span className="text-sm text-gray-500">
+                {book.borrowCount} borrows
+              </span>
             </div>
           </div>
         </Link>
@@ -201,35 +225,56 @@ const Books: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-primary-50">
               <tr>
-                <th scope="col" className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider"
+                >
                   Title & Author
                 </th>
-                <th scope="col" className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider"
+                >
                   ISBN
                 </th>
-                <th scope="col" className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider"
+                >
                   Category
                 </th>
-                <th scope="col" className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-left text-lg font-medium text-primary-900 uppercase tracking-wider"
+                >
                   Status
                 </th>
-                <th scope="col" className="px-6 py-4 text-right text-lg font-medium text-primary-900 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-4 text-right text-lg font-medium text-primary-900 uppercase tracking-wider"
+                >
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {books.map(book => (
+              {books.map((book) => (
                 <tr key={book.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <img
-                        src={book.coverUrl || 'https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg'}
+                        src={
+                          book.coverUrl ||
+                          "https://images.pexels.com/photos/1907785/pexels-photo-1907785.jpeg"
+                        }
                         alt={book.title}
                         className="h-16 w-12 object-cover rounded"
                       />
                       <div className="ml-4">
-                        <Link to={`/books/${book.id}`} className="font-medium text-primary-700 hover:text-primary-900 text-lg">
+                        <Link
+                          to={`/books/${book.id}`}
+                          className="font-medium text-primary-700 hover:text-primary-900 text-lg"
+                        >
                           {book.title}
                         </Link>
                         <p className="text-gray-600">{book.author}</p>
@@ -243,7 +288,9 @@ const Books: React.FC = () => {
                     {book.category}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(book.status)}`}>
+                    <span
+                      className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(book.status)}`}
+                    >
                       {book.status}
                     </span>
                   </td>
@@ -287,9 +334,11 @@ const Books: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
           <div>
             <h1 className="text-3xl font-bold mb-2">Books</h1>
-            <p className="text-lg text-gray-600">Manage your library's book collection.</p>
+            <p className="text-lg text-gray-600">
+              Manage your library's book collection.
+            </p>
           </div>
-          
+
           <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
             <form onSubmit={handleSearch} className="relative">
               <input
@@ -297,12 +346,12 @@ const Books: React.FC = () => {
                 placeholder="Search by title, author, or ISBN..."
                 className="input-field pl-10 w-full md:w-72"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
               <Search className="absolute left-3 top-4 h-6 w-6 text-gray-400" />
             </form>
-            
-            <button 
+
+            <button
               onClick={() => setIsAddModalOpen(true)}
               className="btn btn-primary flex items-center justify-center space-x-2"
             >
@@ -324,24 +373,27 @@ const Books: React.FC = () => {
             </button>
           </div>
         )}
-        
+
         {/* Filters and View Toggle */}
         <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-6 bg-white p-4 rounded-xl shadow-sm">
           <div className="flex items-center">
             <Filter className="h-5 w-5 mr-2 text-gray-500" />
             <span className="font-medium text-gray-700">Filters:</span>
           </div>
-          
+
           <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
             <div>
-              <label htmlFor="filterCategory" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="filterCategory"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Category
               </label>
               <select
                 id="filterCategory"
                 className="block w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500"
                 value={filterCategory}
-                onChange={e => setFilterCategory(e.target.value)}
+                onChange={(e) => setFilterCategory(e.target.value)}
               >
                 <option value="All">All Categories</option>
                 <option value="Fiction">Fiction</option>
@@ -349,16 +401,19 @@ const Books: React.FC = () => {
                 <option value="Children">Children's Books</option>
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="filterStatus" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="filterStatus"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Status
               </label>
               <select
                 id="filterStatus"
                 className="block w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500"
                 value={filterStatus}
-                onChange={e => setFilterStatus(e.target.value)}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="All">All Statuses</option>
                 <option value="Available">Available</option>
@@ -368,28 +423,28 @@ const Books: React.FC = () => {
               </select>
             </div>
           </div>
-          
+
           <div className="md:ml-auto">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               View
             </label>
             <div className="flex space-x-2">
               <button
-                onClick={() => setViewMode('grid')}
+                onClick={() => setViewMode("grid")}
                 className={`px-3 py-2 rounded-lg ${
-                  viewMode === 'grid'
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  viewMode === "grid"
+                    ? "bg-primary-100 text-primary-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 Grid
               </button>
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => setViewMode("list")}
                 className={`px-3 py-2 rounded-lg ${
-                  viewMode === 'list'
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  viewMode === "list"
+                    ? "bg-primary-100 text-primary-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 List
@@ -397,27 +452,35 @@ const Books: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Books Display */}
         {books.length > 0 ? (
-          viewMode === 'grid' ? renderGridView() : renderListView()
+          viewMode === "grid" ? (
+            renderGridView()
+          ) : (
+            renderListView()
+          )
         ) : (
           <div className="text-center py-12">
             <PlusCircle className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-lg font-medium text-gray-900">No books found</h3>
+            <h3 className="mt-2 text-lg font-medium text-gray-900">
+              No books found
+            </h3>
             <p className="mt-1 text-gray-500">
               {searchQuery
-                ? 'Try a different search query.'
-                : 'Get started by adding some books to your library.'}
+                ? "Try a different search query."
+                : "Get started by adding some books to your library."}
             </p>
-            <div className="mt-6">
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="btn btn-primary"
-              >
-                Add New Book
-              </button>
-            </div>
+            <PermissionGate resource="books" action="create">
+              <div className="mt-6">
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="btn btn-primary"
+                >
+                  Add New Book
+                </button>
+              </div>
+            </PermissionGate>
           </div>
         )}
       </div>
@@ -426,7 +489,10 @@ const Books: React.FC = () => {
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
 
@@ -434,9 +500,11 @@ const Books: React.FC = () => {
               <form onSubmit={handleAddBook}>
                 <div className="bg-white px-6 pt-5 pb-4">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-bold text-gray-900">Add New Book</h3>
-                    <button 
-                      type="button" 
+                    <h3 className="text-2xl font-bold text-gray-900">
+                      Add New Book
+                    </h3>
+                    <button
+                      type="button"
                       onClick={() => setIsAddModalOpen(false)}
                       className="text-gray-400 hover:text-gray-500"
                     >
@@ -453,7 +521,9 @@ const Books: React.FC = () => {
                       disabled={isLoading}
                     >
                       <Camera className="h-5 w-5 mr-2" />
-                      <span>{isScannerActive ? 'Cancel Scan' : 'Scan ISBN'}</span>
+                      <span>
+                        {isScannerActive ? "Cancel Scan" : "Scan ISBN"}
+                      </span>
                     </button>
 
                     {isScannerActive && (
@@ -466,7 +536,9 @@ const Books: React.FC = () => {
                     )}
 
                     {scannerError && (
-                      <p className="mt-2 text-sm text-red-600">{scannerError}</p>
+                      <p className="mt-2 text-sm text-red-600">
+                        {scannerError}
+                      </p>
                     )}
 
                     {isLoading && (
@@ -475,10 +547,13 @@ const Books: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="title" className="block text-lg font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor="title"
+                        className="block text-lg font-medium text-gray-700 mb-1"
+                      >
                         Title
                       </label>
                       <input
@@ -491,9 +566,12 @@ const Books: React.FC = () => {
                         required
                       />
                     </div>
-                    
+
                     <div>
-                      <label htmlFor="author" className="block text-lg font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor="author"
+                        className="block text-lg font-medium text-gray-700 mb-1"
+                      >
                         Author
                       </label>
                       <input
@@ -506,9 +584,12 @@ const Books: React.FC = () => {
                         required
                       />
                     </div>
-                    
+
                     <div>
-                      <label htmlFor="isbn" className="block text-lg font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor="isbn"
+                        className="block text-lg font-medium text-gray-700 mb-1"
+                      >
                         ISBN
                       </label>
                       <input
@@ -521,9 +602,12 @@ const Books: React.FC = () => {
                         required
                       />
                     </div>
-                    
+
                     <div>
-                      <label htmlFor="category" className="block text-lg font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor="category"
+                        className="block text-lg font-medium text-gray-700 mb-1"
+                      >
                         Category
                       </label>
                       <select
@@ -541,7 +625,10 @@ const Books: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="coverUrl" className="block text-lg font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor="coverUrl"
+                        className="block text-lg font-medium text-gray-700 mb-1"
+                      >
                         Cover Image URL (optional)
                       </label>
                       <input
@@ -559,7 +646,7 @@ const Books: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                   <button
                     type="button"
@@ -573,7 +660,7 @@ const Books: React.FC = () => {
                     className="btn btn-primary"
                     disabled={isLoading}
                   >
-                    {isLoading ? 'Adding...' : 'Add Book'}
+                    {isLoading ? "Adding..." : "Add Book"}
                   </button>
                 </div>
               </form>
