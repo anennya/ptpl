@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { authClient } from "../lib/auth-client";
 
 // Define types
@@ -11,6 +17,22 @@ interface User {
   updatedAt: Date;
   image?: string | null;
   member?: unknown;
+}
+
+interface SessionData {
+  user: User;
+  session: {
+    id: string;
+    createdAt: Date;
+    updatedAt: Date;
+    expiresAt: Date;
+    token: string;
+    ipAddress?: string;
+    userAgent?: string;
+    userId: string;
+    activeOrganizationId?: string;
+  };
+  activeOrganizationId?: string;
 }
 
 interface AuthContextType {
@@ -34,35 +56,66 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (session.data?.user) {
-      setUser(session.data.user as User);
-    } else {
-      setUser(null);
-    }
-    setLoading(session.isPending);
-  }, [session.data, session.isPending]);
+    const initializeUser = async () => {
+      if (session.data?.user) {
+        setUser(session.data.user as User);
+
+        // Check if user has an active organization, if not set one
+        const sessionData = session.data as SessionData;
+        if (!sessionData?.activeOrganizationId && !sessionData?.session?.activeOrganizationId) {
+          try {
+            const organizations = await authClient.organization.list();
+
+            if (organizations.data && organizations.data.length > 0) {
+              const firstOrg = organizations.data[0];
+              await authClient.organization.setActive({
+                organizationId: firstOrg.id,
+              });
+            }
+          } catch (error) {
+            console.error(
+              "AuthProvider: Failed to set active organization:",
+              error,
+            );
+          }
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(session.isPending);
+    };
+
+    initializeUser();
+  }, [session.data, session.isPending, session.error]);
 
   const value = {
     user,
     loading,
     signIn: authClient.signIn,
     signOut: authClient.signOut,
-    hasPermission: async (resource: string, action: string): Promise<boolean> => {
+    hasPermission: async (
+      resource: string,
+      action: string,
+    ): Promise<boolean> => {
       try {
+        if (!user) {
+          return false;
+        }
+
         const result = await authClient.organization.hasPermission({
           permissions: { [resource]: [action] },
         });
-        
+
         // Handle different response types from better-auth
-        if (typeof result === 'boolean') {
+        if (typeof result === "boolean") {
           return result;
         }
-        
+
         // Handle Data<{ success: boolean }> type
-        if (result && typeof result === 'object' && 'success' in result) {
+        if (result && typeof result === "object" && "success" in result) {
           return Boolean((result as { success: boolean }).success);
         }
-        
+
         return false;
       } catch (error) {
         console.error("Permission check failed:", error);

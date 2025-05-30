@@ -17,6 +17,7 @@ export default defineConfig({
           const handleAuth = async () => {
             try {
               console.log('Auth middleware handling:', req.method, req.url);
+              console.log('Request headers:', req.headers);
               
               // Dynamically import auth configuration only when needed
               const { auth } = await import('./src/lib/auth.js');
@@ -43,6 +44,7 @@ export default defineConfig({
                 req.on('data', (chunk) => chunks.push(chunk));
                 await new Promise((resolve) => req.on('end', resolve));
                 body = Buffer.concat(chunks).toString();
+                console.log('Request body:', body);
               }
 
               const request = new Request(url.toString(), {
@@ -52,7 +54,19 @@ export default defineConfig({
               });
 
               // Handle with Better Auth
+              console.log('Calling auth.handler with request:', {
+                url: request.url,
+                method: request.method,
+                headers: Object.fromEntries(request.headers.entries())
+              });
+              
               const response = await auth.handler(request);
+              
+              console.log('Auth handler response:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries())
+              });
               
               // Send response back
               response.headers.forEach((value, key) => {
@@ -63,6 +77,7 @@ export default defineConfig({
               
               if (response.body) {
                 const text = await response.text();
+                console.log('Response body:', text);
                 res.end(text);
               } else {
                 res.end();
@@ -72,6 +87,7 @@ export default defineConfig({
               console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
               console.error('Request URL:', req.url);
               console.error('Request method:', req.method);
+              console.error('Request headers:', req.headers);
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ 

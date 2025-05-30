@@ -2,9 +2,14 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthProvider";
 
-const ProtectedRoute = ({ resource, action }) => {
+interface ProtectedRouteProps {
+  resource: string;
+  action: string;
+}
+
+const ProtectedRoute = ({ resource, action }: ProtectedRouteProps) => {
   const { user, loading, hasPermission } = useAuth();
-  const [permitted, setPermitted] = useState(null);
+  const [permitted, setPermitted] = useState<boolean | null>(null);
   const location = useLocation();
 
   useEffect(() => {
