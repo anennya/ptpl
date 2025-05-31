@@ -8,6 +8,7 @@ import {
   BarChart3,
   X,
   LayoutDashboard,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "../../contexts/useAuth";
 import PermissionGate from "../../components/PermissionGate";
@@ -92,6 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           </PermissionGate>
           <PermissionGate resource="members" action="create">
             <NavLink to="/admin" className={navLinkClass}>
+              <UserCog className="w-6 h-6 mr-3" />
               Admin
             </NavLink>
           </PermissionGate>

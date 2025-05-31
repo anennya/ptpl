@@ -1,13 +1,40 @@
 import { useState, useEffect } from "react";
 import { authClient } from "../lib/auth-client";
 
+// Define interfaces for member and invitation types
+interface Member {
+  id: string;
+  organizationId: string;
+  role: "member" | "admin" | "volunteer";
+  createdAt: Date;
+  userId: string;
+  user: {
+    email: string;
+    name: string;
+    image?: string;
+  };
+}
+
+interface Invitation {
+  id: string;
+  email: string;
+  status: "pending" | "accepted" | "rejected" | "canceled";
+  expiresAt: Date;
+  organizationId: string;
+  role: string;
+  inviterId: string;
+  teamId?: string;
+}
+
+type RoleType = "admin" | "volunteer" | "member";
+
 export default function AdminPanel() {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("volunteer");
+  const [role, setRole] = useState<RoleType>("volunteer");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [members, setMembers] = useState([]);
-  const [invitations, setInvitations] = useState([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
 
   // Fetch organization members
   useEffect(() => {
@@ -16,7 +43,8 @@ export default function AdminPanel() {
         const organization = await authClient.organization.getFullOrganization(
           {},
         );
-        setMembers(organization.members || []);
+        const data = organization.data || { members: [] };
+        setMembers(Array.isArray(data.members) ? data.members : []);
       } catch (error) {
         console.error("Error fetching members:", error);
       }
@@ -27,7 +55,8 @@ export default function AdminPanel() {
         const invitationList = await authClient.organization.listInvitations(
           {},
         );
-        setInvitations(invitationList || []);
+        const data = invitationList.data || [];
+        setInvitations(data as Invitation[]);
       } catch (error) {
         console.error("Error fetching invitations:", error);
       }
@@ -37,7 +66,7 @@ export default function AdminPanel() {
     fetchInvitations();
   }, []);
 
-  const handleInviteUser = async (e) => {
+  const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
@@ -45,23 +74,25 @@ export default function AdminPanel() {
     try {
       await authClient.organization.inviteMember({
         email,
-        role,
+        role: role as RoleType,
       });
       setMessage(`Invitation sent to ${email} with role: ${role}`);
       setEmail("");
 
       // Refresh invitations list
       const invitationList = await authClient.organization.listInvitations({});
-      setInvitations(invitationList || []);
-    } catch (error) {
+      const data = invitationList.data || [];
+      setInvitations(data as Invitation[]);
+    } catch (error: unknown) {
       console.error("Error inviting user:", error);
-      setMessage(`Failed to send invitation: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setMessage(`Failed to send invitation: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancelInvitation = async (invitationId) => {
+  const handleCancelInvitation = async (invitationId: string) => {
     try {
       await authClient.organization.cancelInvitation({
         invitationId,
@@ -69,13 +100,14 @@ export default function AdminPanel() {
 
       // Refresh invitations list
       const invitationList = await authClient.organization.listInvitations({});
-      setInvitations(invitationList || []);
+      const data = invitationList.data || [];
+      setInvitations(data as Invitation[]);
     } catch (error) {
       console.error("Error canceling invitation:", error);
     }
   };
 
-  const handleUpdateRole = async (memberId, newRole) => {
+  const handleUpdateRole = async (memberId: string, newRole: RoleType) => {
     try {
       await authClient.organization.updateMemberRole({
         memberId,
@@ -86,13 +118,14 @@ export default function AdminPanel() {
       const organization = await authClient.organization.getFullOrganization(
         {},
       );
-      setMembers(organization.members || []);
+      const data = organization.data || { members: [] };
+      setMembers(Array.isArray(data.members) ? data.members : []);
     } catch (error) {
       console.error("Error updating role:", error);
     }
   };
 
-  const handleRemoveMember = async (memberId) => {
+  const handleRemoveMember = async (memberId: string) => {
     try {
       await authClient.organization.removeMember({
         memberIdOrEmail: memberId,
@@ -102,7 +135,8 @@ export default function AdminPanel() {
       const organization = await authClient.organization.getFullOrganization(
         {},
       );
-      setMembers(organization.members || []);
+      const data = organization.data || { members: [] };
+      setMembers(Array.isArray(data.members) ? data.members : []);
     } catch (error) {
       console.error("Error removing member:", error);
     }
@@ -135,7 +169,7 @@ export default function AdminPanel() {
             </label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value)}
+              onChange={(e) => setRole(e.target.value as RoleType)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
               <option value="admin">Admin</option>
@@ -249,7 +283,7 @@ export default function AdminPanel() {
                     <select
                       value={member.role}
                       onChange={(e) =>
-                        handleUpdateRole(member.id, e.target.value)
+                        handleUpdateRole(member.id, e.target.value as RoleType)
                       }
                       className="mr-2 text-sm border rounded"
                     >
