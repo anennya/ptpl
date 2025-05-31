@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "../contexts/AuthProvider";
+import { useAuth } from "../contexts/useAuth";
 
 interface ProtectedRouteProps {
   resource: string;
@@ -18,13 +18,13 @@ const ProtectedRoute = ({ resource, action }: ProtectedRouteProps) => {
         setPermitted(false);
         return;
       }
-      
+
       // Admin users automatically have all permissions
-      if (user.role === 'admin') {
+      if (user.role === "admin") {
         setPermitted(true);
         return;
       }
-      
+
       // For non-admin users, check specific permissions
       const isPermitted = await hasPermission(resource, action);
       setPermitted(isPermitted);
@@ -42,7 +42,7 @@ const ProtectedRoute = ({ resource, action }: ProtectedRouteProps) => {
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   return permitted ? <Outlet /> : <Navigate to="/dashboard" replace />;
 };
 

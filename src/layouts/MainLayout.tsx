@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import Sidebar from "../components/navigation/Sidebar";
 import Header from "../components/navigation/Header";
-import { useAuth } from "../contexts/AuthProvider";
+import { useAuth } from "../contexts/useAuth";
 
 const MainLayout: React.FC = () => {
   const { user, loading } = useAuth();

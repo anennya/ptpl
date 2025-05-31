@@ -9,7 +9,7 @@ import {
   X,
   LayoutDashboard,
 } from "lucide-react";
-import { useAuth } from "../../contexts/AuthProvider";
+import { useAuth } from "../../contexts/useAuth";
 import PermissionGate from "../../components/PermissionGate";
 
 interface SidebarProps {

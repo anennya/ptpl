@@ -1,5 +1,5 @@
 import { useEffect, useState, ReactNode } from "react";
-import { useAuth } from "../contexts/AuthProvider";
+import { useAuth } from "../contexts/useAuth";
 
 interface PermissionGateProps {
   resource: string;
@@ -20,44 +20,47 @@ export default function PermissionGate({
 
   useEffect(() => {
     let mounted = true;
-    
+
     const checkPermission = async () => {
       if (!user) {
         setPermitted(false);
         setIsChecking(false);
         return;
       }
-      
+
       try {
         setIsChecking(true);
-        
+
         // Special handling for admin users - always grant permission
-        if (user.role === 'admin') {
+        if (user.role === "admin") {
           if (mounted) {
             setPermitted(true);
             setIsChecking(false);
           }
           return;
         }
-        
+
         // For non-admin users, check specific permissions
         const isPermitted = await hasPermission(resource, action);
-        
+
         if (mounted) {
           setPermitted(isPermitted);
           setIsChecking(false);
         }
       } catch (error) {
-        console.error(`Permission check error for ${resource}:${action}:`, error);
+        console.error(
+          `Permission check error for ${resource}:${action}:`,
+          error,
+        );
         if (mounted) {
           setPermitted(false);
           setIsChecking(false);
         }
       }
     };
-    
+
     checkPermission();
-    
+
     return () => {
       mounted = false;
     };
@@ -67,6 +70,6 @@ export default function PermissionGate({
   if (isChecking) {
     return null;
   }
-  
+
   return permitted ? children : fallback;
 }

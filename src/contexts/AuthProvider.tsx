@@ -1,6 +1,5 @@
 import {
   createContext,
-  useContext,
   useState,
   useEffect,
   ReactNode,
@@ -8,7 +7,7 @@ import {
 import { authClient } from "../lib/auth-client";
 
 // Define types
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -20,7 +19,14 @@ interface User {
   role?: string;
 }
 
-interface SessionData {
+export interface MemberResponse {
+  role?: string;
+  data?: {
+    role?: string;
+  };
+}
+
+export interface SessionData {
   user: User;
   session: {
     id: string;
@@ -36,7 +42,7 @@ interface SessionData {
   activeOrganizationId?: string;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: typeof authClient.signIn;
@@ -49,7 +55,7 @@ interface AuthProviderProps {
 }
 
 // Create auth context
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const session = authClient.useSession();
@@ -64,7 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Try to get user's role from active organization membership
         try {
           const activeMemberResponse = await authClient.organization.getActiveMember();
-          const memberData = activeMemberResponse as any;
+          const memberData = activeMemberResponse as MemberResponse;
           const userWithRole = {
             ...baseUser,
             role: memberData?.role || memberData?.data?.role || 'member'
@@ -94,7 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               // Retry getting the role after setting active organization
               try {
                 const activeMemberResponse = await authClient.organization.getActiveMember();
-                const memberData = activeMemberResponse as any;
+                const memberData = activeMemberResponse as MemberResponse;
                 const userWithRole = {
                   ...baseUser,
                   role: memberData?.role || memberData?.data?.role || 'member'
@@ -169,11 +175,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Custom hook to use auth context
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === null) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
+// The useAuth hook has been moved to useAuth.tsx file
