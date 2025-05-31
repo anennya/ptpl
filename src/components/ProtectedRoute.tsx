@@ -14,12 +14,20 @@ const ProtectedRoute = ({ resource, action }: ProtectedRouteProps) => {
 
   useEffect(() => {
     const checkPermission = async () => {
-      if (user) {
-        const isPermitted = await hasPermission(resource, action);
-        setPermitted(isPermitted);
-      } else {
+      if (!user) {
         setPermitted(false);
+        return;
       }
+      
+      // Admin users automatically have all permissions
+      if (user.role === 'admin') {
+        setPermitted(true);
+        return;
+      }
+      
+      // For non-admin users, check specific permissions
+      const isPermitted = await hasPermission(resource, action);
+      setPermitted(isPermitted);
     };
 
     if (!loading) {
@@ -34,7 +42,7 @@ const ProtectedRoute = ({ resource, action }: ProtectedRouteProps) => {
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
+  
   return permitted ? <Outlet /> : <Navigate to="/dashboard" replace />;
 };
 

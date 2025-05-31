@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PermissionGate from "../components/PermissionGate";
 import { Search, PlusCircle, X, Check, Filter, Camera } from "lucide-react";
 import { Book } from "../types";
 import { getAllBooks, searchBooks, addBook } from "../services/bookService";
 import { fetchBookByISBN } from "../services/bookApiService";
 import ISBNScanner from "../components/ISBNScanner";
+import { useAuth } from "../contexts/AuthProvider";
 
 const Books: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -18,6 +19,8 @@ const Books: React.FC = () => {
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
   const [newBook, setNewBook] = useState({
     title: "",
     author: "",
@@ -28,18 +31,10 @@ const Books: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    console.log("Books component mounted or dependencies changed");
     loadBooks();
   }, [searchQuery, filterCategory, filterStatus]);
 
   const loadBooks = async () => {
-    console.log("Loading books...");
-    console.log("Current filters:", {
-      searchQuery,
-      filterCategory,
-      filterStatus,
-    });
-
     setIsLoading(true);
     setError(null);
     try {
