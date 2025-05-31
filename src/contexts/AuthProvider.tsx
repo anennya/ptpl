@@ -58,11 +58,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initializeUser = async () => {
       if (session.data?.user) {
-        setUser(session.data.user as User);
+        // setUser(session.data.user as User);
 
         // Check if user has an active organization, if not set one
         const sessionData = session.data as SessionData;
-        if (!sessionData?.activeOrganizationId && !sessionData?.session?.activeOrganizationId) {
+        if (
+          !sessionData?.activeOrganizationId &&
+          !sessionData?.session?.activeOrganizationId
+        ) {
           try {
             const organizations = await authClient.organization.list();
 
@@ -79,6 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             );
           }
         }
+        setUser(session.data.user as User);
       } else {
         setUser(null);
       }
