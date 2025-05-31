@@ -1,12 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { useAuth } from "../contexts/AuthProvider";
+
+interface PermissionGateProps {
+  resource: string;
+  action: string;
+  children: ReactNode;
+  fallback?: ReactNode;
+}
 
 export default function PermissionGate({
   resource,
   action,
   children,
   fallback = null,
-}) {
+}: PermissionGateProps) {
   const { hasPermission } = useAuth();
   const [permitted, setPermitted] = useState(false);
 

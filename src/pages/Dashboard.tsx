@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, LineChart, PieChart, BookOpen, Users, AlertCircle, PiggyBank } from 'lucide-react';
+import { BarChart, PieChart, BookOpen, Users, AlertCircle, PiggyBank } from 'lucide-react';
 import { BarChart as RechartBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getAvailableBooksCount, getBorrowedBooksCount, getOverdueBooks } from '../services/bookService';
 import { getActiveBorrowersCount, getTotalFines } from '../services/memberService';
@@ -15,34 +15,56 @@ const Dashboard: React.FC = () => {
     totalFines: 0,
   });
 
-  const [popularBooks, setPopularBooks] = useState<any[]>([]);
-  const [categoryData, setCategoryData] = useState<any[]>([]);
+  interface BookReportItem {
+    id: string;
+    title: string;
+    author: string;
+    category: string;
+    borrowCount: number;
+  }
+
+  interface CategoryReportItem {
+    name: string;
+    count: number;
+  }
+
+  const [popularBooks, setPopularBooks] = useState<BookReportItem[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryReportItem[]>([]);
 
   useEffect(() => {
-    // Get dashboard data
-    const books = JSON.parse(localStorage.getItem('books') || '[]');
-    const availableBooks = getAvailableBooksCount();
-    const borrowedBooks = getBorrowedBooksCount();
-    const overdueBooks = getOverdueBooks().length;
-    const activeBorrowers = getActiveBorrowersCount();
-    const totalFines = getTotalFines();
-    
-    setStats({
-      totalBooks: books.length,
-      availableBooks,
-      borrowedBooks,
-      overdueBooks,
-      activeBorrowers,
-      totalFines,
-    });
+    // Fetch dashboard data asynchronously
+    const fetchData = async () => {
+      try {
+        // Get dashboard data
+        const books = JSON.parse(localStorage.getItem('books') || '[]');
+        const availableBooks = await getAvailableBooksCount();
+        const borrowedBooks = await getBorrowedBooksCount();
+        const overdueBooks = (await getOverdueBooks()).length;
+        const activeBorrowers = getActiveBorrowersCount();
+        const totalFines = getTotalFines();
+        
+        setStats({
+          totalBooks: books.length,
+          availableBooks,
+          borrowedBooks,
+          overdueBooks,
+          activeBorrowers,
+          totalFines,
+        });
 
-    // Get popular books for chart
-    const popularBooksData = generatePopularBooksReport().slice(0, 5);
-    setPopularBooks(popularBooksData);
+        // Get popular books for chart
+        const popularBooksData = await generatePopularBooksReport();
+        setPopularBooks(popularBooksData.slice(0, 5));
 
-    // Get category data for chart
-    const categoriesData = generateCategoryReport();
-    setCategoryData(categoriesData);
+        // Get category data for chart
+        const categoriesData = await generateCategoryReport();
+        setCategoryData(categoriesData);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      }
+    };
+
+    fetchData();
   }, []);
 
   return (
@@ -140,7 +162,7 @@ const Dashboard: React.FC = () => {
                   />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value, name) => [value, 'Borrow Count']}
+                    formatter={(value) => [value, 'Borrow Count']}
                     labelFormatter={(value) => `Title: ${value}`}
                   />
                   <Bar dataKey="borrowCount" fill="#4f56e6" />
@@ -165,7 +187,7 @@ const Dashboard: React.FC = () => {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value, name) => [value, 'Borrow Count']}
+                    formatter={(value) => [value, 'Borrow Count']}
                     labelFormatter={(value) => `Category: ${value}`}
                   />
                   <Bar dataKey="count" fill="#ff6a15" />
