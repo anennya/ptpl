@@ -56,7 +56,7 @@ export const auth = betterAuth({
       },
       // Configure invitation email
       sendInvitationEmail: async (data) => {
-        const inviteLink = `${process.env.APP_URL}/accept-invitation/${data.id}`;
+        const inviteLink = `${process.env.VITE_APP_URL}/accept-invitation/${data.id}`;
         console.log(
           `INVITATION: ${data.email} invited to ${data.organization.name} as ${data.role}`,
         );
