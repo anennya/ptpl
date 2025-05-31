@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { authClient } from "../lib/auth-client";
 
 // Define types
@@ -17,6 +11,7 @@ interface User {
   updatedAt: Date;
   image?: string | null;
   member?: unknown;
+  role?: string;
 }
 
 interface SessionData {
@@ -33,6 +28,23 @@ interface SessionData {
     activeOrganizationId?: string;
   };
   activeOrganizationId?: string;
+}
+
+interface ActiveMemberResponse {
+  data?: {
+    id: string;
+    createdAt: Date;
+    userId: string;
+    organizationId: string;
+    role: string;
+    teamId?: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string | null;
+    };
+  };
 }
 
 interface AuthContextType {
@@ -58,14 +70,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initializeUser = async () => {
       if (session.data?.user) {
-        // setUser(session.data.user as User);
+        const baseUser = session.data.user as User;
+        
+        // Try to get user's role from active organization membership
+        try {
+          const activeMemberResponse = await authClient.organization.getActiveMember();
+          const memberData = activeMemberResponse as ActiveMemberResponse;
+          const userWithRole = {
+            ...baseUser,
+            role: memberData.data?.role || 'member'
+          };
+          setUser(userWithRole);
+        } catch {
+          // If we can't get the role, just set the user without role
+          setUser(baseUser);
+        }
 
         // Check if user has an active organization, if not set one
         const sessionData = session.data as SessionData;
-        if (
-          !sessionData?.activeOrganizationId &&
-          !sessionData?.session?.activeOrganizationId
-        ) {
+        if (!sessionData?.activeOrganizationId && !sessionData?.session?.activeOrganizationId) {
           try {
             const organizations = await authClient.organization.list();
 
@@ -74,6 +97,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
               await authClient.organization.setActive({
                 organizationId: firstOrg.id,
               });
+              
+              // Retry getting the role after setting active organization
+              try {
+                const activeMemberResponse = await authClient.organization.getActiveMember();
+                const memberData = activeMemberResponse as ActiveMemberResponse;
+                const userWithRole = {
+                  ...baseUser,
+                  role: memberData.data?.role || 'member'
+                };
+                setUser(userWithRole);
+              } catch (roleError) {
+                console.error("AuthProvider: Failed to get user role after setting active org:", roleError);
+              }
             }
           } catch (error) {
             console.error(
@@ -82,7 +118,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             );
           }
         }
-        setUser(session.data.user as User);
       } else {
         setUser(null);
       }

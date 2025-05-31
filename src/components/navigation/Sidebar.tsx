@@ -100,14 +100,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         <div className="px-4 py-4 border-t border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-              <span className="text-primary-700 font-bold">PT</span>
+              <span className="text-primary-700 font-bold">
+                {user?.name
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase() || "PT"}
+              </span>
             </div>
             <div>
-              <p className="font-medium">Library Volunteer</p>
-              <p className="text-sm text-gray-500">Today's Shift</p>
+              <p className="font-medium">{user?.name || "Library User"}</p>
+              <p className="text-sm text-gray-500 capitalize">
+                {user?.role || "Member"}
+              </p>
             </div>
+          </div>
+
+          <div className="flex flex-col items-start py-4">
             <span className="text-sm font-medium text-gray-700">
-              {user.email} ({user.member?.role || "Loading..."})
+              {user?.email}
             </span>
             <button
               onClick={handleSignOut}
