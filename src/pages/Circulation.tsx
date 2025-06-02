@@ -204,6 +204,7 @@ const Circulation: React.FC = () => {
           <p className="text-lg text-gray-600">Manage book borrowing, returns, and renewals.</p>
         </div>
         
+        {/* Step indicators */}
         <div className="flex items-center justify-center">
           <div className="flex items-center w-full max-w-3xl justify-between">
             <div className="flex flex-col items-center">
@@ -244,6 +245,7 @@ const Circulation: React.FC = () => {
           </div>
         </div>
         
+        {/* Success or error message */}
         {resultMessage && (
           <div className={`${
             resultMessage.success ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
@@ -274,6 +276,7 @@ const Circulation: React.FC = () => {
           </div>
         )}
         
+        {/* Main content */}
         <div className="card">
           {step === 'member' && (
             <div className="space-y-6">
@@ -645,6 +648,7 @@ const Circulation: React.FC = () => {
                 </div>
               </div>
               
+              {/* Warning messages */}
               {action === 'borrow' && selectedMember.fines > 0 && (
                 <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
                   <p className="font-medium">
