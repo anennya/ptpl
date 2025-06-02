@@ -21,35 +21,47 @@ const Circulation: React.FC = () => {
     success: boolean;
     message: string;
   } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Handle direct navigation with book and member IDs
     const initializeFromParams = async () => {
       if (initialMemberId) {
-        const member = getMemberById(initialMemberId);
-        if (member) {
-          setSelectedMember(member);
-          setStep('book');
-          
-          if (initialBookId) {
-            const book = getBookById(initialBookId);
-            if (book) {
-              setSelectedBook(book);
-              if (book.status === 'Borrowed' && book.borrowedBy === initialMemberId) {
-                setAction('return');
+        try {
+          const member = await getMemberById(initialMemberId);
+          if (member) {
+            setSelectedMember(member);
+            setStep('book');
+            
+            if (initialBookId) {
+              const book = await getBookById(initialBookId);
+              if (book) {
+                setSelectedBook(book);
+                if (book.status === 'Borrowed' && book.borrowedBy === initialMemberId) {
+                  setAction('return');
+                }
+                setStep('confirm');
               }
-              setStep('confirm');
             }
           }
+        } catch (err) {
+          console.error('Error initializing from params:', err);
+          setError('Failed to load initial data');
         }
       } else if (initialBookId) {
-        const book = getBookById(initialBookId);
-        if (book) {
-          setSelectedBook(book);
-          if (book.status === 'Borrowed') {
-            setAction('return');
+        try {
+          const book = await getBookById(initialBookId);
+          if (book) {
+            setSelectedBook(book);
+            if (book.status === 'Borrowed') {
+              setAction('return');
+            }
+            setStep('member');
           }
-          setStep('member');
+        } catch (err) {
+          console.error('Error loading book:', err);
+          setError('Failed to load book data');
         }
       }
     };
@@ -57,26 +69,36 @@ const Circulation: React.FC = () => {
     initializeFromParams();
   }, [initialBookId, initialMemberId]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!searchQuery.trim()) return;
     
-    if (step === 'member') {
-      const members = searchMembers(searchQuery);
-      setSearchResults(members);
-    } else if (step === 'book') {
-      let books = searchBooks(searchQuery);
-      
-      // If action is return, filter only books borrowed by the selected member
-      if (action === 'return' && selectedMember) {
-        books = books.filter(book => 
-          book.status === 'Borrowed' && 
-          book.borrowedBy === selectedMember.id
-        );
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      if (step === 'member') {
+        const members = await searchMembers(searchQuery);
+        setSearchResults(members);
+      } else if (step === 'book') {
+        let books = await searchBooks(searchQuery);
+        
+        // If action is return, filter only books borrowed by the selected member
+        if (action === 'return' && selectedMember) {
+          books = books.filter(book => 
+            book.status === 'Borrowed' && 
+            book.borrowedBy === selectedMember.id
+          );
+        }
+        
+        setSearchResults(books);
       }
-      
-      setSearchResults(books);
+    } catch (err) {
+      console.error('Error searching:', err);
+      setError('Failed to search. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -108,38 +130,48 @@ const Circulation: React.FC = () => {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!selectedMember || !selectedBook) return;
     
-    let result;
+    setIsLoading(true);
+    setError(null);
     
-    switch (action) {
-      case 'borrow':
-        result = borrowBook(selectedBook.id, selectedMember.id);
-        break;
-      case 'return':
-        result = returnBook(selectedBook.id, selectedMember.id);
-        break;
-      case 'renew':
-        result = renewBook(selectedBook.id, selectedMember.id);
-        break;
-    }
-    
-    setResultMessage({
-      success: result.success,
-      message: result.message,
-    });
-    
-    // Reset if successful
-    if (result.success) {
-      setTimeout(() => {
-        setSelectedMember(null);
-        setSelectedBook(null);
-        setStep('member');
-        setSearchQuery('');
-        setSearchResults([]);
-        setResultMessage(null);
-      }, 3000);
+    try {
+      let result;
+      
+      switch (action) {
+        case 'borrow':
+          result = await borrowBook(selectedBook.id, selectedMember.id);
+          break;
+        case 'return':
+          result = await returnBook(selectedBook.id, selectedMember.id);
+          break;
+        case 'renew':
+          result = await renewBook(selectedBook.id, selectedMember.id);
+          break;
+      }
+      
+      setResultMessage({
+        success: result.success,
+        message: result.message,
+      });
+      
+      // Reset if successful
+      if (result.success) {
+        setTimeout(() => {
+          setSelectedMember(null);
+          setSelectedBook(null);
+          setStep('member');
+          setSearchQuery('');
+          setSearchResults([]);
+          setResultMessage(null);
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Error performing action:', err);
+      setError('Failed to complete action. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -162,416 +194,6 @@ const Circulation: React.FC = () => {
     setSearchResults([]);
   };
 
-  const renderMemberStep = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Step 1: Select Member</h2>
-        
-        <div className="flex space-x-3">
-          <button 
-            onClick={() => handleSwitchAction('borrow')}
-            className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            Borrow
-          </button>
-          <button 
-            onClick={() => handleSwitchAction('return')}
-            className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            Return
-          </button>
-        </div>
-      </div>
-      
-      <form onSubmit={handleSearch} className="relative">
-        <input
-          type="text"
-          placeholder="Search member by name, phone, or apartment..."
-          className="input-field pl-10 w-full"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
-        <Search className="absolute left-3 top-4 h-6 w-6 text-gray-400" />
-        <button type="submit" className="btn btn-primary absolute right-1 top-1">
-          Search
-        </button>
-      </form>
-      
-      {searchResults.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(searchResults as Member[]).map(member => (
-            <div 
-              key={member.id}
-              onClick={() => handleSelectMember(member)}
-              className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-primary-900">{member.name}</h3>
-                  <p className="text-gray-600">{member.phone}</p>
-                  <p className="text-gray-600">Apartment: {member.apartmentNumber}</p>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
-                    {member.borrowedBooks.length}/2 Books
-                  </span>
-                  {member.fines > 0 && (
-                    <span className="mt-2 px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
-                      ₹{member.fines} Fine
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {searchQuery && searchResults.length === 0 && (
-        <div className="text-center py-10 text-gray-500">
-          <Users className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-          <p className="text-xl">No members found with that search.</p>
-          <p className="mt-2">Try a different search term or <Link to="/members" className="text-primary-600 hover:text-primary-800">add a new member</Link>.</p>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderBookStep = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
-        <h2 className="text-2xl font-bold">Step 2: Select Book</h2>
-        
-        <div className="flex space-x-3">
-          {selectedMember && selectedMember.borrowedBooks.length > 0 && (
-            <>
-              <button 
-                onClick={() => handleSwitchAction('borrow')}
-                className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
-                disabled={selectedMember.borrowedBooks.length >= 2}
-              >
-                Borrow
-              </button>
-              <button 
-                onClick={() => handleSwitchAction('return')}
-                className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                Return
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-      
-      <div className="bg-primary-50 p-4 rounded-lg">
-        <div className="flex items-center">
-          <Users className="h-6 w-6 mr-2 text-primary-600" />
-          <h3 className="text-lg font-bold">Selected Member:</h3>
-        </div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between mt-2">
-          <div>
-            <p className="text-lg font-medium">{selectedMember?.name}</p>
-            <p className="text-gray-600">Phone: {selectedMember?.phone}</p>
-          </div>
-          <div className="flex space-x-3 mt-3 md:mt-0">
-            <button
-              onClick={handleBackToMember}
-              className="btn btn-secondary"
-            >
-              Change Member
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <form onSubmit={handleSearch} className="relative">
-        <input
-          type="text"
-          placeholder={action === 'return' 
-            ? "Search book to return..." 
-            : "Search book by title, author, or ISBN..."}
-          className="input-field pl-10 w-full"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
-        <Search className="absolute left-3 top-4 h-6 w-6 text-gray-400" />
-        <button type="submit" className="btn btn-primary absolute right-1 top-1">
-          Search
-        </button>
-      </form>
-      
-      {action === 'return' && selectedMember && selectedMember.borrowedBooks.length === 0 && (
-        <div className="text-center py-10 text-gray-500">
-          <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-          <p className="text-xl">This member has no books to return.</p>
-          <button
-            onClick={() => handleSwitchAction('borrow')}
-            className="btn btn-primary mt-4"
-          >
-            Borrow a Book Instead
-          </button>
-        </div>
-      )}
-      
-      {action === 'borrow' && selectedMember && selectedMember.borrowedBooks.length >= 2 && (
-        <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-          <p className="font-medium">
-            This member has already borrowed the maximum of 2 books.
-          </p>
-          <p className="mt-1">
-            Please return a book before borrowing another one.
-          </p>
-          <button
-            onClick={() => handleSwitchAction('return')}
-            className="btn btn-accent mt-3"
-          >
-            Return a Book First
-          </button>
-        </div>
-      )}
-      
-      {action === 'borrow' && selectedMember && selectedMember.fines > 0 && (
-        <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-          <p className="font-medium">
-            This member has unpaid fines of ₹{selectedMember.fines}.
-          </p>
-          <p className="mt-1">
-            Please clear the fines before borrowing.
-          </p>
-          <Link
-            to={`/members/${selectedMember.id}`}
-            className="btn btn-accent mt-3"
-          >
-            View Member Details
-          </Link>
-        </div>
-      )}
-      
-      {searchResults.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {(searchResults as Book[]).map(book => (
-            <div 
-              key={book.id}
-              onClick={() => handleSelectBook(book)}
-              className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
-                  <p className="text-gray-600">{book.author}</p>
-                  <p className="text-sm text-gray-500 mt-1">ISBN: {book.isbn}</p>
-                </div>
-                <div>
-                  <span className={`px-3 py-1 text-sm font-semibold rounded-full 
-                    ${book.status === 'Available' 
-                      ? 'bg-green-100 text-green-800' 
-                      : book.status === 'Borrowed' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-800'}`}
-                  >
-                    {book.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {searchQuery && searchResults.length === 0 && (
-        <div className="text-center py-10 text-gray-500">
-          <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-          <p className="text-xl">No books found with that search.</p>
-          <p className="mt-2">Try a different search term or <Link to="/books" className="text-primary-600 hover:text-primary-800">add a new book</Link>.</p>
-        </div>
-      )}
-      
-      {action === 'return' && !searchQuery && selectedMember && selectedMember.borrowedBooks.length > 0 && (
-        <>
-          <h3 className="text-xl font-medium mt-4">Books to Return:</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {selectedMember.borrowedBooks.map(bookId => {
-              const book = getBookById(bookId);
-              if (!book) return null;
-              
-              return (
-                <div 
-                  key={book.id}
-                  onClick={() => handleSelectBook(book)}
-                  className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
-                      <p className="text-gray-600">{book.author}</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {book.dueDate && `Due: ${new Date(book.dueDate).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
-                        Borrowed
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-
-  const renderConfirmStep = () => {
-    if (!selectedMember || !selectedBook) return null;
-    
-    const isOverdue = selectedBook.status === 'Borrowed' && 
-                      selectedBook.dueDate && 
-                      new Date(selectedBook.dueDate) < new Date();
-    
-    const isRenewable = selectedBook.status === 'Borrowed' && 
-                         selectedBook.borrowedBy === selectedMember.id;
-    
-    return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Step 3: Confirm {action.charAt(0).toUpperCase() + action.slice(1)}</h2>
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
-            <button
-              onClick={handleBackToMember}
-              className="btn btn-secondary"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Change Member
-            </button>
-            <button
-              onClick={handleBackToBook}
-              className="btn btn-secondary"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Change Book
-            </button>
-          </div>
-          
-          {isRenewable && (
-            <div className="mt-3 md:mt-0">
-              <button
-                onClick={() => setAction(action === 'renew' ? 'return' : 'renew')}
-                className={`btn ${action === 'renew' ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                <RotateCcw className="h-5 w-5 mr-2" />
-                {action === 'renew' ? 'Confirming Renew' : 'Renew Instead'}
-              </button>
-            </div>
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card">
-            <div className="flex items-center mb-3">
-              <Users className="h-6 w-6 mr-2 text-primary-600" />
-              <h3 className="text-xl font-bold">Member</h3>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xl font-medium">{selectedMember.name}</p>
-              <p><span className="text-gray-600">Phone:</span> {selectedMember.phone}</p>
-              <p><span className="text-gray-600">Apartment:</span> {selectedMember.apartmentNumber}</p>
-              <p><span className="text-gray-600">Books Borrowed:</span> {selectedMember.borrowedBooks.length}/2</p>
-              <p>
-                <span className="text-gray-600">Fines:</span> 
-                {selectedMember.fines > 0 
-                  ? <span className="text-accent-600 font-medium"> ₹{selectedMember.fines}</span> 
-                  : <span className="text-green-600"> None</span>}
-              </p>
-            </div>
-          </div>
-          
-          <div className="card">
-            <div className="flex items-center mb-3">
-              <BookOpen className="h-6 w-6 mr-2 text-primary-600" />
-              <h3 className="text-xl font-bold">Book</h3>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xl font-medium">{selectedBook.title}</p>
-              <p><span className="text-gray-600">Author:</span> {selectedBook.author}</p>
-              <p><span className="text-gray-600">ISBN:</span> {selectedBook.isbn}</p>
-              <p><span className="text-gray-600">Category:</span> {selectedBook.category}</p>
-              <p>
-                <span className="text-gray-600">Status:</span> 
-                <span className={`ml-1 px-2 py-0.5 text-sm font-semibold rounded-full 
-                  ${selectedBook.status === 'Available' 
-                    ? 'bg-green-100 text-green-800' 
-                    : selectedBook.status === 'Borrowed' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : 'bg-gray-100 text-gray-800'}`}
-                >
-                  {selectedBook.status}
-                </span>
-              </p>
-              {selectedBook.dueDate && (
-                <p>
-                  <span className="text-gray-600">Due Date:</span> 
-                  <span className={isOverdue ? 'text-accent-600 font-medium' : ''}>
-                    {' '}{new Date(selectedBook.dueDate).toLocaleDateString()}
-                    {isOverdue && ' (Overdue)'}
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Warning messages */}
-        {action === 'borrow' && selectedMember.fines > 0 && (
-          <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-            <p className="font-medium">
-              Warning: This member has unpaid fines of ₹{selectedMember.fines}.
-            </p>
-            <p className="mt-1">
-              It is recommended to clear the fines before borrowing.
-            </p>
-          </div>
-        )}
-        
-        {action === 'borrow' && selectedMember.borrowedBooks.length >= 2 && (
-          <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-            <p className="font-medium">
-              This member has already borrowed the maximum of 2 books.
-            </p>
-            <p className="mt-1">
-              Please return a book before borrowing another one.
-            </p>
-          </div>
-        )}
-        
-        {action === 'return' && isOverdue && (
-          <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-            <p className="font-medium">
-              This book is overdue. A fine will be calculated on return.
-            </p>
-            <p className="mt-1">
-              The fine is ₹5 per day overdue.
-            </p>
-          </div>
-        )}
-        
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={handleConfirm}
-            disabled={(action === 'borrow' && selectedMember.borrowedBooks.length >= 2) || 
-                     (action === 'return' && selectedBook.borrowedBy !== selectedMember.id)}
-            className="btn btn-primary flex items-center"
-          >
-            <span>Confirm {action.charAt(0).toUpperCase() + action.slice(1)}</span>
-            <ArrowRight className="h-5 w-5 ml-2" />
-          </button>
-        </div>
-      </div>
-    );
-  };
-  
   return (
     <div className="fade-in">
       <div className="flex flex-col space-y-6">
@@ -639,12 +261,445 @@ const Circulation: React.FC = () => {
             </button>
           </div>
         )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center">
+              <X className="h-5 w-5 mr-2" />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError(null)}>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
         
         {/* Main content */}
         <div className="card">
-          {step === 'member' && renderMemberStep()}
-          {step === 'book' && renderBookStep()}
-          {step === 'confirm' && renderConfirmStep()}
+          {step === 'member' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Step 1: Select Member</h2>
+                
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={() => handleSwitchAction('borrow')}
+                    className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
+                    disabled={isLoading}
+                  >
+                    Borrow
+                  </button>
+                  <button 
+                    onClick={() => handleSwitchAction('return')}
+                    className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
+                    disabled={isLoading}
+                  >
+                    Return
+                  </button>
+                </div>
+              </div>
+              
+              <form onSubmit={handleSearch} className="relative">
+                <input
+                  type="text"
+                  placeholder="Search member by name, phone, or apartment..."
+                  className="input-field pl-10 w-full"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  disabled={isLoading}
+                />
+                <Search className="absolute left-3 top-4 h-6 w-6 text-gray-400" />
+                <button 
+                  type="submit" 
+                  className="btn btn-primary absolute right-1 top-1"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Searching...' : 'Search'}
+                </button>
+              </form>
+              
+              {searchResults.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(searchResults as Member[]).map(member => (
+                    <div 
+                      key={member.id}
+                      onClick={() => handleSelectMember(member)}
+                      className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-primary-900">{member.name}</h3>
+                          <p className="text-gray-600">{member.phone}</p>
+                          <p className="text-gray-600">Apartment: {member.apartmentNumber}</p>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
+                            {member.borrowedBooks.length}/2 Books
+                          </span>
+                          {member.fines > 0 && (
+                            <span className="mt-2 px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
+                              ₹{member.fines} Fine
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {searchQuery && searchResults.length === 0 && !isLoading && (
+                <div className="text-center py-10 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-xl">No members found with that search.</p>
+                  <p className="mt-2">Try a different search term or <Link to="/members" className="text-primary-600 hover:text-primary-800">add a new member</Link>.</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {step === 'book' && (
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
+                <h2 className="text-2xl font-bold">Step 2: Select Book</h2>
+                
+                <div className="flex space-x-3">
+                  {selectedMember && selectedMember.borrowedBooks.length > 0 && (
+                    <>
+                      <button 
+                        onClick={() => handleSwitchAction('borrow')}
+                        className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
+                        disabled={selectedMember.borrowedBooks.length >= 2 || isLoading}
+                      >
+                        Borrow
+                      </button>
+                      <button 
+                        onClick={() => handleSwitchAction('return')}
+                        className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
+                        disabled={isLoading}
+                      >
+                        Return
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div className="bg-primary-50 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <Users className="h-6 w-6 mr-2 text-primary-600" />
+                  <h3 className="text-lg font-bold">Selected Member:</h3>
+                </div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between mt-2">
+                  <div>
+                    <p className="text-lg font-medium">{selectedMember?.name}</p>
+                    <p className="text-gray-600">Phone: {selectedMember?.phone}</p>
+                  </div>
+                  <div className="flex space-x-3 mt-3 md:mt-0">
+                    <button
+                      onClick={handleBackToMember}
+                      className="btn btn-secondary"
+                      disabled={isLoading}
+                    >
+                      Change Member
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <form onSubmit={handleSearch} className="relative">
+                <input
+                  type="text"
+                  placeholder={action === 'return' 
+                    ? "Search book to return..." 
+                    : "Search book by title, author, or ISBN..."}
+                  className="input-field pl-10 w-full"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  disabled={isLoading}
+                />
+                <Search className="absolute left-3 top-4 h-6 w-6 text-gray-400" />
+                <button 
+                  type="submit" 
+                  className="btn btn-primary absolute right-1 top-1"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Searching...' : 'Search'}
+                </button>
+              </form>
+              
+              {action === 'return' && selectedMember && selectedMember.borrowedBooks.length === 0 && (
+                <div className="text-center py-10 text-gray-500">
+                  <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-xl">This member has no books to return.</p>
+                  <button
+                    onClick={() => handleSwitchAction('borrow')}
+                    className="btn btn-primary mt-4"
+                    disabled={isLoading}
+                  >
+                    Borrow a Book Instead
+                  </button>
+                </div>
+              )}
+              
+              {action === 'borrow' && selectedMember && selectedMember.borrowedBooks.length >= 2 && (
+                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
+                  <p className="font-medium">
+                    This member has already borrowed the maximum of 2 books.
+                  </p>
+                  <p className="mt-1">
+                    Please return a book before borrowing another one.
+                  </p>
+                  <button
+                    onClick={() => handleSwitchAction('return')}
+                    className="btn btn-accent mt-3"
+                    disabled={isLoading}
+                  >
+                    Return a Book First
+                  </button>
+                </div>
+              )}
+              
+              {action === 'borrow' && selectedMember && selectedMember.fines > 0 && (
+                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
+                  <p className="font-medium">
+                    This member has unpaid fines of ₹{selectedMember.fines}.
+                  </p>
+                  <p className="mt-1">
+                    Please clear the fines before borrowing.
+                  </p>
+                  <Link
+                    to={`/members/${selectedMember.id}`}
+                    className="btn btn-accent mt-3"
+                  >
+                    View Member Details
+                  </Link>
+                </div>
+              )}
+              
+              {searchResults.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {(searchResults as Book[]).map(book => (
+                    <div 
+                      key={book.id}
+                      onClick={() => handleSelectBook(book)}
+                      className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
+                          <p className="text-gray-600">{book.author}</p>
+                          <p className="text-sm text-gray-500 mt-1">ISBN: {book.isbn}</p>
+                        </div>
+                        <div>
+                          <span className={`px-3 py-1 text-sm font-semibold rounded-full 
+                            ${book.status === 'Available' 
+                              ? 'bg-green-100 text-green-800' 
+                              : book.status === 'Borrowed' 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-gray-100 text-gray-800'}`}
+                          >
+                            {book.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {searchQuery && searchResults.length === 0 && !isLoading && (
+                <div className="text-center py-10 text-gray-500">
+                  <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-xl">No books found with that search.</p>
+                  <p className="mt-2">Try a different search term or <Link to="/books" className="text-primary-600 hover:text-primary-800">add a new book</Link>.</p>
+                </div>
+              )}
+              
+              {action === 'return' && !searchQuery && selectedMember && selectedMember.borrowedBooks.length > 0 && (
+                <>
+                  <h3 className="text-xl font-medium mt-4">Books to Return:</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {selectedMember.borrowedBooks.map(bookId => {
+                      const book = getBookById(bookId);
+                      if (!book) return null;
+                      
+                      return (
+                        <div 
+                          key={book.id}
+                          onClick={() => handleSelectBook(book)}
+                          className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
+                              <p className="text-gray-600">{book.author}</p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {book.dueDate && `Due: ${new Date(book.dueDate).toLocaleDateString()}`}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+                                Borrowed
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          
+          {step === 'confirm' && selectedMember && selectedBook && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold">Step 3: Confirm {action.charAt(0).toUpperCase() + action.slice(1)}</h2>
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
+                  <button
+                    onClick={handleBackToMember}
+                    className="btn btn-secondary"
+                    disabled={isLoading}
+                  >
+                    <ArrowLeft className="h-5 w-5 mr-2" />
+                    Change Member
+                  </button>
+                  <button
+                    onClick={handleBackToBook}
+                    className="btn btn-secondary"
+                    disabled={isLoading}
+                  >
+                    <ArrowLeft className="h-5 w-5 mr-2" />
+                    Change Book
+                  </button>
+                </div>
+                
+                {selectedBook.status === 'Borrowed' && selectedBook.borrowedBy === selectedMember.id && (
+                  <div className="mt-3 md:mt-0">
+                    <button
+                      onClick={() => setAction(action === 'renew' ? 'return' : 'renew')}
+                      className={`btn ${action === 'renew' ? 'btn-primary' : 'btn-secondary'}`}
+                      disabled={isLoading}
+                    >
+                      <RotateCcw className="h-5 w-5 mr-2" />
+                      {action === 'renew' ? 'Confirming Renew' : 'Renew Instead'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="card">
+                  <div className="flex items-center mb-3">
+                    <Users className="h-6 w-6 mr-2 text-primary-600" />
+                    <h3 className="text-xl font-bold">Member</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xl font-medium">{selectedMember.name}</p>
+                    <p><span className="text-gray-600">Phone:</span> {selectedMember.phone}</p>
+                    <p><span className="text-gray-600">Apartment:</span> {selectedMember.apartmentNumber}</p>
+                    <p><span className="text-gray-600">Books Borrowed:</span> {selectedMember.borrowedBooks.length}/2</p>
+                    <p>
+                      <span className="text-gray-600">Fines:</span> 
+                      {selectedMember.fines > 0 
+                        ? <span className="text-accent-600 font-medium"> ₹{selectedMember.fines}</span> 
+                        : <span className="text-green-600"> None</span>}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="card">
+                  <div className="flex items-center mb-3">
+                    <BookOpen className="h-6 w-6 mr-2 text-primary-600" />
+                    <h3 className="text-xl font-bold">Book</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xl font-medium">{selectedBook.title}</p>
+                    <p><span className="text-gray-600">Author:</span> {selectedBook.author}</p>
+                    <p><span className="text-gray-600">ISBN:</span> {selectedBook.isbn}</p>
+                    <p><span className="text-gray-600">Category:</span> {selectedBook.category}</p>
+                    <p>
+                      <span className="text-gray-600">Status:</span> 
+                      <span className={`ml-1 px-2 py-0.5 text-sm font-semibold rounded-full 
+                        ${selectedBook.status === 'Available' 
+                          ? 'bg-green-100 text-green-800' 
+                          : selectedBook.status === 'Borrowed' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'}`}
+                      >
+                        {selectedBook.status}
+                      </span>
+                    </p>
+                    {selectedBook.dueDate && (
+                      <p>
+                        <span className="text-gray-600">Due Date:</span> 
+                        <span className={new Date(selectedBook.dueDate) < new Date() ? 'text-accent-600 font-medium' : ''}>
+                          {' '}{new Date(selectedBook.dueDate).toLocaleDateString()}
+                          {new Date(selectedBook.dueDate) < new Date() && ' (Overdue)'}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Warning messages */}
+              {action === 'borrow' && selectedMember.fines > 0 && (
+                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
+                  <p className="font-medium">
+                    Warning: This member has unpaid fines of ₹{selectedMember.fines}.
+                  </p>
+                  <p className="mt-1">
+                    It is recommended to clear the fines before borrowing.
+                  </p>
+                </div>
+              )}
+              
+              {action === 'borrow' && selectedMember.borrowedBooks.length >= 2 && (
+                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
+                  <p className="font-medium">
+                    This member has already borrowed the maximum of 2 books.
+                  </p>
+                  <p className="mt-1">
+                    Please return a book before borrowing another one.
+                  </p>
+                </div>
+              )}
+              
+              {action === 'return' && selectedBook.dueDate && new Date(selectedBook.dueDate) < new Date() && (
+                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
+                  <p className="font-medium">
+                    This book is overdue. A fine will be calculated on return.
+                  </p>
+                  <p className="mt-1">
+                    The fine is ₹5 per day overdue.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={handleConfirm}
+                  disabled={
+                    isLoading ||
+                    (action === 'borrow' && selectedMember.borrowedBooks.length >= 2) || 
+                    (action === 'return' && selectedBook.borrowedBy !== selectedMember.id)
+                  }
+                  className="btn btn-primary flex items-center"
+                >
+                  <span>
+                    {isLoading 
+                      ? `${action.charAt(0).toUpperCase() + action.slice(1)}ing...` 
+                      : `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`}
+                  </span>
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
