@@ -267,7 +267,7 @@ async function handleGetUserOrganizations(
         `
         id,
         role,
-        organizations!organization_id (
+        organizations (
           id,
           name,
           created_at
