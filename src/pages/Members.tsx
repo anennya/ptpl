@@ -8,6 +8,8 @@ const Members: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newMember, setNewMember] = useState({
     name: '',
     phone: '',
@@ -16,24 +18,40 @@ const Members: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    // Load all members initially
-    const loadMembers = () => {
-      if (searchQuery.trim()) {
-        setMembers(searchMembers(searchQuery));
-      } else {
-        setMembers(getAllMembers());
-      }
-    };
-
     loadMembers();
-  }, [searchQuery]);
+  }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const loadMembers = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await getAllMembers();
+      setMembers(data);
+    } catch (err) {
+      console.error('Error loading members:', err);
+      setError('Failed to load members. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      setMembers(searchMembers(searchQuery));
-    } else {
-      setMembers(getAllMembers());
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (searchQuery.trim()) {
+        const results = await searchMembers(searchQuery);
+        setMembers(results);
+      } else {
+        const allMembers = await getAllMembers();
+        setMembers(allMembers);
+      }
+    } catch (err) {
+      console.error('Error searching members:', err);
+      setError('Failed to search members. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,21 +60,40 @@ const Members: React.FC = () => {
     setNewMember(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    addMember(newMember);
-    
-    // Reset form and show success message
-    setNewMember({ name: '', phone: '', apartmentNumber: '' });
-    setIsAddModalOpen(false);
-    
-    // Show success message
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-    
-    // Refresh member list
-    setMembers(getAllMembers());
+    setIsLoading(true);
+    setError(null);
+    try {
+      await addMember(newMember);
+      setNewMember({ name: '', phone: '', apartmentNumber: '' });
+      setIsAddModalOpen(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      loadMembers();
+    } catch (err) {
+      console.error('Error adding member:', err);
+      setError('Failed to add member. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (isLoading && members.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-xl text-gray-500">Loading members...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-xl text-red-500">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in">
@@ -83,6 +120,7 @@ const Members: React.FC = () => {
             <button 
               onClick={() => setIsAddModalOpen(true)}
               className="btn btn-primary flex items-center justify-center space-x-2"
+              disabled={isLoading}
             >
               <UserPlus className="h-5 w-5" />
               <span>Add Member</span>
@@ -262,14 +300,16 @@ const Members: React.FC = () => {
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
                     className="btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                    disabled={isLoading}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     className="btn btn-primary"
+                    disabled={isLoading}
                   >
-                    Add Member
+                    {isLoading ? 'Adding...' : 'Add Member'}
                   </button>
                 </div>
               </form>

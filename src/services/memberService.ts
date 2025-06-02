@@ -1,109 +1,260 @@
+import { supabase } from '../lib/supabase';
 import { Member, BorrowRecord } from '../types';
 
 // Get all members
-export const getAllMembers = (): Member[] => {
-  const members = localStorage.getItem('members');
-  return members ? JSON.parse(members) : [];
+export const getAllMembers = async (): Promise<Member[]> => {
+  const { data, error } = await supabase
+    .from('members')
+    .select('*')
+    .order('name');
+    
+  if (error) {
+    console.error('Error fetching members:', error);
+    throw error;
+  }
+  
+  return data.map(member => ({
+    id: member.id,
+    name: member.name || '',
+    phone: member.mobile_number || '',
+    apartmentNumber: member.flat_number || '',
+    borrowedBooks: [], // We'll need to fetch this from loans table
+    borrowHistory: [], // We'll need to fetch this from loans table
+    fines: parseFloat(member.total_amount_due) || 0
+  }));
 };
 
 // Get member by ID
-export const getMemberById = (id: string): Member | null => {
-  const members = getAllMembers();
-  return members.find(member => member.id === id) || null;
+export const getMemberById = async (id: string): Promise<Member | null> => {
+  const { data, error } = await supabase
+    .from('members')
+    .select('*')
+    .eq('id', id)
+    .single();
+    
+  if (error || !data) {
+    console.error('Error fetching member:', error);
+    return null;
+  }
+  
+  return {
+    id: data.id,
+    name: data.name || '',
+    phone: data.mobile_number || '',
+    apartmentNumber: data.flat_number || '',
+    borrowedBooks: [], // We'll need to fetch this from loans table
+    borrowHistory: [], // We'll need to fetch this from loans table
+    fines: parseFloat(data.total_amount_due) || 0
+  };
 };
 
-// Search members by name, phone, or apartment
-export const searchMembers = (query: string): Member[] => {
-  const members = getAllMembers();
-  const lowercaseQuery = query.toLowerCase();
+// Search members
+export const searchMembers = async (query: string): Promise<Member[]> => {
+  const { data, error } = await supabase
+    .from('members')
+    .select('*')
+    .or(`name.ilike.%${query}%,mobile_number.ilike.%${query}%,flat_number.ilike.%${query}%`)
+    .order('name');
+    
+  if (error) {
+    console.error('Error searching members:', error);
+    throw error;
+  }
   
-  return members.filter(
-    member =>
-      member.name.toLowerCase().includes(lowercaseQuery) ||
-      member.phone.includes(query) ||
-      member.apartmentNumber.toLowerCase().includes(lowercaseQuery)
-  );
+  return data.map(member => ({
+    id: member.id,
+    name: member.name || '',
+    phone: member.mobile_number || '',
+    apartmentNumber: member.flat_number || '',
+    borrowedBooks: [], // We'll need to fetch this from loans table
+    borrowHistory: [], // We'll need to fetch this from loans table
+    fines: parseFloat(member.total_amount_due) || 0
+  }));
 };
 
 // Add new member
-export const addMember = (member: Omit<Member, 'id' | 'borrowedBooks' | 'borrowHistory' | 'fines'>): Member => {
-  const members = getAllMembers();
+export const addMember = async (member: Omit<Member, 'id' | 'borrowedBooks' | 'borrowHistory' | 'fines'>): Promise<Member> => {
+  const { data, error } = await supabase
+    .from('members')
+    .insert([{
+      name: member.name,
+      mobile_number: member.phone,
+      flat_number: member.apartmentNumber,
+      membership_status: 'PENDING',
+      total_amount_due: 0
+    }])
+    .select()
+    .single();
+    
+  if (error || !data) {
+    console.error('Error adding member:', error);
+    throw error;
+  }
   
-  const newMember: Member = {
-    id: Date.now().toString(),
-    ...member,
+  return {
+    id: data.id,
+    name: data.name,
+    phone: data.mobile_number,
+    apartmentNumber: data.flat_number,
     borrowedBooks: [],
     borrowHistory: [],
-    fines: 0,
+    fines: 0
   };
-  
-  localStorage.setItem('members', JSON.stringify([...members, newMember]));
-  
-  return newMember;
 };
 
 // Update member
-export const updateMember = (updatedMember: Member): Member => {
-  const members = getAllMembers();
-  const updatedMembers = members.map(member => 
-    member.id === updatedMember.id ? updatedMember : member
-  );
+export const updateMember = async (updatedMember: Member): Promise<Member> => {
+  const { data, error } = await supabase
+    .from('members')
+    .update({
+      name: updatedMember.name,
+      mobile_number: updatedMember.phone,
+      flat_number: updatedMember.apartmentNumber,
+      total_amount_due: updatedMember.fines
+    })
+    .eq('id', updatedMember.id)
+    .select()
+    .single();
+    
+  if (error || !data) {
+    console.error('Error updating member:', error);
+    throw error;
+  }
   
-  localStorage.setItem('members', JSON.stringify(updatedMembers));
-  
-  return updatedMember;
+  return {
+    id: data.id,
+    name: data.name,
+    phone: data.mobile_number,
+    apartmentNumber: data.flat_number,
+    borrowedBooks: updatedMember.borrowedBooks,
+    borrowHistory: updatedMember.borrowHistory,
+    fines: parseFloat(data.total_amount_due) || 0
+  };
 };
 
 // Delete member
-export const deleteMember = (id: string): boolean => {
-  const members = getAllMembers();
-  const member = getMemberById(id);
-  
-  if (!member) return false;
-  
-  // Check if member has borrowed books
-  if (member.borrowedBooks.length > 0) {
-    return false;
+export const deleteMember = async (id: string): Promise<boolean> => {
+  // First check if member has any active loans
+  const { data: loans, error: loansError } = await supabase
+    .from('loans')
+    .select('*')
+    .eq('member_id', id)
+    .is('returned_on', null);
+    
+  if (loansError) {
+    console.error('Error checking loans:', loansError);
+    throw loansError;
   }
   
-  const updatedMembers = members.filter(member => member.id !== id);
-  localStorage.setItem('members', JSON.stringify(updatedMembers));
+  if (loans && loans.length > 0) {
+    return false; // Cannot delete member with active loans
+  }
+  
+  const { error } = await supabase
+    .from('members')
+    .delete()
+    .eq('id', id);
+    
+  if (error) {
+    console.error('Error deleting member:', error);
+    throw error;
+  }
   
   return true;
 };
 
 // Pay or waive fine
-export const updateMemberFine = (id: string, amount: number, isWaive: boolean = false): Member | null => {
-  const member = getMemberById(id);
+export const updateMemberFine = async (id: string, amount: number, isWaive: boolean = false): Promise<Member | null> => {
+  const { data: member, error: memberError } = await supabase
+    .from('members')
+    .select('total_amount_due')
+    .eq('id', id)
+    .single();
+    
+  if (memberError || !member) {
+    console.error('Error fetching member:', memberError);
+    return null;
+  }
   
-  if (!member) return null;
+  const currentFine = parseFloat(member.total_amount_due) || 0;
+  const newFine = isWaive ? 0 : Math.max(0, currentFine - amount);
   
-  const updatedMember = {
-    ...member,
-    fines: isWaive ? 0 : Math.max(0, member.fines - amount)
+  const { data, error } = await supabase
+    .from('members')
+    .update({ total_amount_due: newFine })
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (error || !data) {
+    console.error('Error updating fine:', error);
+    return null;
+  }
+  
+  return {
+    id: data.id,
+    name: data.name,
+    phone: data.mobile_number,
+    apartmentNumber: data.flat_number,
+    borrowedBooks: [], // We'll need to fetch this from loans table
+    borrowHistory: [], // We'll need to fetch this from loans table
+    fines: parseFloat(data.total_amount_due) || 0
   };
-  
-  return updateMember(updatedMember);
 };
 
 // Get member's borrow history
-export const getMemberBorrowHistory = (id: string): BorrowRecord[] => {
-  const borrowRecords = localStorage.getItem('borrowRecords');
+export const getMemberBorrowHistory = async (id: string): Promise<BorrowRecord[]> => {
+  const { data, error } = await supabase
+    .from('loans')
+    .select(`
+      *,
+      book:book_id (*)
+    `)
+    .eq('member_id', id)
+    .order('issued_on', { ascending: false });
+    
+  if (error) {
+    console.error('Error fetching borrow history:', error);
+    throw error;
+  }
   
-  if (!borrowRecords) return [];
-  
-  const records: BorrowRecord[] = JSON.parse(borrowRecords);
-  return records.filter(record => record.memberId === id);
+  return data.map(loan => ({
+    id: loan.id,
+    bookId: loan.book_id,
+    memberId: loan.member_id,
+    borrowDate: new Date(loan.issued_on),
+    dueDate: new Date(loan.due_on),
+    returnDate: loan.returned_on ? new Date(loan.returned_on) : undefined,
+    renewed: loan.is_renewed || false,
+    fine: loan.fine_amount
+  }));
 };
 
 // Get active borrowers count
-export const getActiveBorrowersCount = (): number => {
-  const members = getAllMembers();
-  return members.filter(member => member.borrowedBooks.length > 0).length;
+export const getActiveBorrowersCount = async (): Promise<number> => {
+  const { count, error } = await supabase
+    .from('loans')
+    .select('member_id', { count: 'exact', head: true })
+    .is('returned_on', null);
+    
+  if (error) {
+    console.error('Error counting active borrowers:', error);
+    throw error;
+  }
+  
+  return count || 0;
 };
 
 // Get total fines
-export const getTotalFines = (): number => {
-  const members = getAllMembers();
-  return members.reduce((total, member) => total + member.fines, 0);
+export const getTotalFines = async (): Promise<number> => {
+  const { data, error } = await supabase
+    .from('members')
+    .select('total_amount_due');
+    
+  if (error) {
+    console.error('Error calculating total fines:', error);
+    throw error;
+  }
+  
+  return data.reduce((total, member) => total + (parseFloat(member.total_amount_due) || 0), 0);
 };
