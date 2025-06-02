@@ -21,7 +21,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </button>
         
         <div>
-          <h1 className="text-xl font-bold md:text-2xl line-clamp-1">Welcome to Prestige Tranquility Library</h1>
+          <h1 className="text-xl font-bold md:text-2xl line-clamp-1">Welcome to Prestige Peoples Tranquility Library</h1>
           <p className="text-sm md:text-base text-gray-500">{today} | 5:00 PM - 7:00 PM</p>
         </div>
       </div>
