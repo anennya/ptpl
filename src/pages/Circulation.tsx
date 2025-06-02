@@ -23,9 +23,9 @@ const Circulation: React.FC = () => {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
-    // Handle direct navigation with book and member IDs
     const initializeFromParams = async () => {
       if (initialMemberId) {
         try {
@@ -76,6 +76,7 @@ const Circulation: React.FC = () => {
     
     setIsLoading(true);
     setError(null);
+    setHasSearched(true);
     
     try {
       if (step === 'member') {
@@ -84,7 +85,6 @@ const Circulation: React.FC = () => {
       } else if (step === 'book') {
         let books = await searchBooks(searchQuery);
         
-        // If action is return, filter only books borrowed by the selected member
         if (action === 'return' && selectedMember) {
           books = books.filter(book => 
             book.status === 'Borrowed' && 
@@ -107,8 +107,8 @@ const Circulation: React.FC = () => {
     setStep('book');
     setSearchQuery('');
     setSearchResults([]);
+    setHasSearched(false);
     
-    // If the member has books to return, set action to return
     if (member.borrowedBooks.length > 0) {
       setAction('return');
     } else {
@@ -120,7 +120,6 @@ const Circulation: React.FC = () => {
     setSelectedBook(book);
     setStep('confirm');
     
-    // Set appropriate action based on book status
     if (book.status === 'Borrowed') {
       if (selectedMember && book.borrowedBy === selectedMember.id) {
         setAction('return');
@@ -156,7 +155,6 @@ const Circulation: React.FC = () => {
         message: result.message,
       });
       
-      // Reset if successful
       if (result.success) {
         setTimeout(() => {
           setSelectedMember(null);
@@ -165,6 +163,7 @@ const Circulation: React.FC = () => {
           setSearchQuery('');
           setSearchResults([]);
           setResultMessage(null);
+          setHasSearched(false);
         }, 3000);
       }
     } catch (err) {
@@ -180,18 +179,21 @@ const Circulation: React.FC = () => {
     setSelectedBook(null);
     setSearchQuery('');
     setSearchResults([]);
+    setHasSearched(false);
   };
 
   const handleBackToBook = () => {
     setStep('book');
     setSearchQuery('');
     setSearchResults([]);
+    setHasSearched(false);
   };
 
   const handleSwitchAction = (newAction: 'borrow' | 'return' | 'renew') => {
     setAction(newAction);
     setSearchQuery('');
     setSearchResults([]);
+    setHasSearched(false);
   };
 
   return (
@@ -202,7 +204,6 @@ const Circulation: React.FC = () => {
           <p className="text-lg text-gray-600">Manage book borrowing, returns, and renewals.</p>
         </div>
         
-        {/* Step indicators */}
         <div className="flex items-center justify-center">
           <div className="flex items-center w-full max-w-3xl justify-between">
             <div className="flex flex-col items-center">
@@ -243,7 +244,6 @@ const Circulation: React.FC = () => {
           </div>
         </div>
         
-        {/* Success or error message */}
         {resultMessage && (
           <div className={`${
             resultMessage.success ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
@@ -274,7 +274,6 @@ const Circulation: React.FC = () => {
           </div>
         )}
         
-        {/* Main content */}
         <div className="card">
           {step === 'member' && (
             <div className="space-y-6">
@@ -348,7 +347,7 @@ const Circulation: React.FC = () => {
                 </div>
               )}
               
-              {searchQuery && searchResults.length === 0 && !isLoading && (
+              {hasSearched && searchQuery && searchResults.length === 0 && !isLoading && (
                 <div className="text-center py-10 text-gray-500">
                   <Users className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <p className="text-xl">No members found with that search.</p>
@@ -508,7 +507,7 @@ const Circulation: React.FC = () => {
                 </div>
               )}
               
-              {searchQuery && searchResults.length === 0 && !isLoading && (
+              {hasSearched && searchQuery && searchResults.length === 0 && !isLoading && (
                 <div className="text-center py-10 text-gray-500">
                   <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <p className="text-xl">No books found with that search.</p>
@@ -646,7 +645,6 @@ const Circulation: React.FC = () => {
                 </div>
               </div>
               
-              {/* Warning messages */}
               {action === 'borrow' && selectedMember.fines > 0 && (
                 <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
                   <p className="font-medium">
