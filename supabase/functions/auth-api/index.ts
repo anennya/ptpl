@@ -148,6 +148,10 @@ serve(async (req: Request): Promise<Response> => {
         return await handleUpdateMemberRole(body, supabase);
       case "removeMember":
         return await handleRemoveMember(body, supabase);
+      case "getInvitation":
+        return await handleGetInvitation(body, supabase);
+      case "acceptInvitation":
+        return await handleAcceptInvitation(body, supabase);
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action", providedAction: action }),
@@ -848,6 +852,160 @@ async function handleGetUserOrganizations(
     return new Response(
       JSON.stringify({
         error: err instanceof Error ? err.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+}
+
+async function handleGetInvitation(
+  body: RequestBody,
+  supabase: SupabaseClient,
+): Promise<Response> {
+  try {
+    const { invitationId } = body;
+
+    if (!invitationId) {
+      return new Response(JSON.stringify({ error: "Missing invitationId" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: invitation, error } = await supabase
+      .from("invitations")
+      .select("*")
+      .eq("id", invitationId)
+      .eq("status", "pending")
+      .single();
+
+    if (error || !invitation) {
+      return new Response(
+        JSON.stringify({ error: "Invitation not found or expired" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const transformedInvitation = {
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      organizationId: invitation.organization_id,
+    };
+
+    return new Response(JSON.stringify(transformedInvitation), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error in handleGetInvitation:", error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+}
+
+async function handleAcceptInvitation(
+  body: RequestBody,
+  supabase: SupabaseClient,
+): Promise<Response> {
+  try {
+    const { invitationId } = body;
+
+    if (!invitationId) {
+      return new Response(JSON.stringify({ error: "Missing invitationId" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const user = await getCurrentUser(supabase);
+
+    const { data: invitation, error: inviteError } = await supabase
+      .from("invitations")
+      .select("*")
+      .eq("id", invitationId)
+      .eq("status", "pending")
+      .single();
+
+    if (inviteError || !invitation) {
+      return new Response(
+        JSON.stringify({ error: "Invitation not found or expired" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (user.email !== invitation.email) {
+      return new Response(
+        JSON.stringify({ error: "Email mismatch" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const { data: existingMember } = await supabase
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", invitation.organization_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existingMember) {
+      await supabase
+        .from("invitations")
+        .update({ status: "accepted" })
+        .eq("id", invitationId);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { error: memberError } = await supabase
+      .from("organization_members")
+      .insert({
+        organization_id: invitation.organization_id,
+        user_id: user.id,
+        role: invitation.role,
+      });
+
+    if (memberError) {
+      throw memberError;
+    }
+
+    const { error: updateError } = await supabase
+      .from("invitations")
+      .update({ status: "accepted" })
+      .eq("id", invitationId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error in handleAcceptInvitation:", error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
       }),
       {
         status: 500,
