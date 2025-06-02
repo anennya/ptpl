@@ -1,9 +1,4 @@
-import {
-  createContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { createContext, useState, useEffect, ReactNode } from "react";
 import * as authService from "../services/auth";
 
 export interface AuthContextType {
@@ -43,7 +38,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
 
     // Listen for auth state changes
-    const { data: { subscription } } = authService.onAuthStateChange((user) => {
+    const {
+      data: { subscription },
+    } = authService.onAuthStateChange((user) => {
       setUser(user);
       setLoading(false);
     });
@@ -54,43 +51,77 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const handleSignIn = async (email: string, password: string) => {
-    const result = await authService.signIn(email, password);
-    if (result.user) {
-      const user = await authService.getUser();
-      setUser(user);
+    try {
+      setLoading(true);
+      const result = await authService.signIn(email, password);
+
+      if (result.user) {
+        // Get the full user data including organization info
+        const userData = await authService.getUser();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error("Sign in failed:", error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSignUp = async (email: string, password: string, name?: string) => {
-    const result = await authService.signUp(email, password, name);
-    if (result.user) {
-      const user = await authService.getUser();
-      setUser(user);
+  const handleSignUp = async (
+    email: string,
+    password: string,
+    name?: string,
+  ) => {
+    try {
+      setLoading(true);
+      const result = await authService.signUp(email, password, name);
+
+      if (result.user) {
+        const userData = await authService.getUser();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error("Sign up failed:", error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSignOut = async () => {
-    await authService.signOut();
-    setUser(null);
+    try {
+      setLoading(true);
+      await authService.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetPassword = async (email: string) => {
     await authService.resetPassword(email);
   };
 
-  const hasPermission = async (resource: string, action: string): Promise<boolean> => {
+  const hasPermission = async (
+    resource: string,
+    action: string,
+  ): Promise<boolean> => {
     try {
       if (!user) {
         return false;
       }
-      
+
       // Admin users always have all permissions
-      if (user.role === 'admin') {
+      if (user.role === "admin") {
         return true;
       }
-      
+
       // Special case for books:view - always allow it for authenticated users
-      if (resource === 'books' && action === 'view') {
+      if (resource === "books" && action === "view") {
         return true;
       }
 
