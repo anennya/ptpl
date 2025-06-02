@@ -13,13 +13,26 @@ export const getAllMembers = async (): Promise<Member[]> => {
     throw error;
   }
   
+  // Also fetch active loans for each member
+  const { data: loans, error: loansError } = await supabase
+    .from('loans')
+    .select('*')
+    .is('returned_on', null);
+    
+  if (loansError) {
+    console.error('Error fetching loans:', loansError);
+    throw loansError;
+  }
+  
   return data.map(member => ({
     id: member.id,
     name: member.name || '',
     phone: member.mobile_number || '',
     apartmentNumber: member.flat_number || '',
-    borrowedBooks: [], // We'll need to fetch this from loans table
-    borrowHistory: [], // We'll need to fetch this from loans table
+    borrowedBooks: loans 
+      ? loans.filter(loan => loan.member_id === member.id).map(loan => loan.book_id)
+      : [],
+    borrowHistory: [],
     fines: parseFloat(member.total_amount_due) || 0
   }));
 };
@@ -37,23 +50,38 @@ export const getMemberById = async (id: string): Promise<Member | null> => {
     return null;
   }
   
+  // Get active loans for this member
+  const { data: loans, error: loansError } = await supabase
+    .from('loans')
+    .select('*')
+    .eq('member_id', id)
+    .is('returned_on', null);
+    
+  if (loansError) {
+    console.error('Error fetching loans:', loansError);
+    throw loansError;
+  }
+  
   return {
     id: data.id,
     name: data.name || '',
     phone: data.mobile_number || '',
     apartmentNumber: data.flat_number || '',
-    borrowedBooks: [], // We'll need to fetch this from loans table
-    borrowHistory: [], // We'll need to fetch this from loans table
+    borrowedBooks: loans ? loans.map(loan => loan.book_id) : [],
+    borrowHistory: [],
     fines: parseFloat(data.total_amount_due) || 0
   };
 };
 
 // Search members
 export const searchMembers = async (query: string): Promise<Member[]> => {
+  // Clean and prepare the search query
+  const searchTerm = query.trim().toLowerCase();
+  
   const { data, error } = await supabase
     .from('members')
     .select('*')
-    .or(`name.ilike.%${query}%,mobile_number.ilike.%${query}%,flat_number.ilike.%${query}%`)
+    .or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,flat_number.ilike.%${searchTerm}%`)
     .order('name');
     
   if (error) {
@@ -61,13 +89,26 @@ export const searchMembers = async (query: string): Promise<Member[]> => {
     throw error;
   }
   
+  // Get all active loans
+  const { data: loans, error: loansError } = await supabase
+    .from('loans')
+    .select('*')
+    .is('returned_on', null);
+    
+  if (loansError) {
+    console.error('Error fetching loans:', loansError);
+    throw loansError;
+  }
+  
   return data.map(member => ({
     id: member.id,
     name: member.name || '',
     phone: member.mobile_number || '',
     apartmentNumber: member.flat_number || '',
-    borrowedBooks: [], // We'll need to fetch this from loans table
-    borrowHistory: [], // We'll need to fetch this from loans table
+    borrowedBooks: loans 
+      ? loans.filter(loan => loan.member_id === member.id).map(loan => loan.book_id)
+      : [],
+    borrowHistory: [],
     fines: parseFloat(member.total_amount_due) || 0
   }));
 };
