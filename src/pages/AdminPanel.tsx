@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { authClient } from "../lib/auth-client";
+import { supabase } from "../lib/supabase";
 
 // Define interfaces for member and invitation types
 interface Member {
@@ -40,11 +40,15 @@ export default function AdminPanel() {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const organization = await authClient.organization.getFullOrganization(
-          {},
-        );
-        const data = organization.data || { members: [] };
-        setMembers(Array.isArray(data.members) ? data.members : []);
+        const { data, error } = await supabase.functions.invoke('auth-api', {
+          body: {
+            action: 'getOrganization'
+          }
+        });
+        
+        if (error) throw error;
+        const organizationData = data || { members: [] };
+        setMembers(Array.isArray(organizationData.members) ? organizationData.members : []);
       } catch (error) {
         console.error("Error fetching members:", error);
       }
@@ -52,11 +56,14 @@ export default function AdminPanel() {
 
     const fetchInvitations = async () => {
       try {
-        const invitationList = await authClient.organization.listInvitations(
-          {},
-        );
-        const data = invitationList.data || [];
-        setInvitations(data as Invitation[]);
+        const { data, error } = await supabase.functions.invoke('auth-api', {
+          body: {
+            action: 'listInvitations'
+          }
+        });
+        
+        if (error) throw error;
+        setInvitations((data || []) as Invitation[]);
       } catch (error) {
         console.error("Error fetching invitations:", error);
       }
@@ -72,16 +79,25 @@ export default function AdminPanel() {
     setMessage("");
 
     try {
-      await authClient.organization.inviteMember({
-        email,
-        role: role as RoleType,
+      const { error } = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'inviteMember',
+          email,
+          role: role as RoleType
+        }
       });
+      
+      if (error) throw error;
       setMessage(`Invitation sent to ${email} with role: ${role}`);
       setEmail("");
 
       // Refresh invitations list
-      const invitationList = await authClient.organization.listInvitations({});
-      const data = invitationList.data || [];
+      const invitationResult = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'listInvitations'
+        }
+      });
+      const data = invitationResult.data || [];
       setInvitations(data as Invitation[]);
     } catch (error: unknown) {
       console.error("Error inviting user:", error);
@@ -94,13 +110,22 @@ export default function AdminPanel() {
 
   const handleCancelInvitation = async (invitationId: string) => {
     try {
-      await authClient.organization.cancelInvitation({
-        invitationId,
+      const { error } = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'cancelInvitation',
+          invitationId
+        }
       });
+      
+      if (error) throw error;
 
       // Refresh invitations list
-      const invitationList = await authClient.organization.listInvitations({});
-      const data = invitationList.data || [];
+      const invitationResult = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'listInvitations'
+        }
+      });
+      const data = invitationResult.data || [];
       setInvitations(data as Invitation[]);
     } catch (error) {
       console.error("Error canceling invitation:", error);
@@ -109,16 +134,23 @@ export default function AdminPanel() {
 
   const handleUpdateRole = async (memberId: string, newRole: RoleType) => {
     try {
-      await authClient.organization.updateMemberRole({
-        memberId,
-        role: newRole,
+      const { error } = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'updateMemberRole',
+          memberId,
+          role: newRole
+        }
       });
+      
+      if (error) throw error;
 
       // Refresh members list
-      const organization = await authClient.organization.getFullOrganization(
-        {},
-      );
-      const data = organization.data || { members: [] };
+      const orgResult = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'getOrganization'
+        }
+      });
+      const data = orgResult.data || { members: [] };
       setMembers(Array.isArray(data.members) ? data.members : []);
     } catch (error) {
       console.error("Error updating role:", error);
@@ -127,15 +159,22 @@ export default function AdminPanel() {
 
   const handleRemoveMember = async (memberId: string) => {
     try {
-      await authClient.organization.removeMember({
-        memberIdOrEmail: memberId,
+      const { error } = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'removeMember',
+          memberId
+        }
       });
+      
+      if (error) throw error;
 
       // Refresh members list
-      const organization = await authClient.organization.getFullOrganization(
-        {},
-      );
-      const data = organization.data || { members: [] };
+      const orgResult = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'getOrganization'
+        }
+      });
+      const data = orgResult.data || { members: [] };
       setMembers(Array.isArray(data.members) ? data.members : []);
     } catch (error) {
       console.error("Error removing member:", error);

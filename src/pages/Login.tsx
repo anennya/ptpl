@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { authClient } from "../lib/auth-client";
+import { useAuth } from "../contexts/useAuth";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -8,6 +8,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
@@ -18,14 +19,10 @@ export default function Login() {
     setError("");
 
     try {
-      await authClient.signIn.email({
-        email,
-        password,
-      });
-
+      await signIn(email, password);
       navigate(from, { replace: true });
-    } catch (err) {
-      setError("Invalid email or password");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Invalid email or password");
       console.error(err);
     } finally {
       setLoading(false);

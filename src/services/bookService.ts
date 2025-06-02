@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { authClient } from "../lib/auth-client";
+import * as authService from "./auth";
 import { Book } from "../types";
 
 // Database interfaces
@@ -120,9 +120,7 @@ export const addBook = async (
   book: Omit<Book, "id" | "borrowCount">,
 ): Promise<Book | null> => {
   // Check permission first
-  const hasPermission = await authClient.organization.hasPermission({
-    permissions: { books: ["create"] },
-  });
+  const hasPermission = await authService.canPerformAction("books", "create");
 
   if (!hasPermission) {
     throw new Error("Permission denied: Cannot create books");
@@ -163,9 +161,7 @@ export const addBook = async (
 // Update book
 export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
   // Check permission first
-  const hasPermission = await authClient.organization.hasPermission({
-    permissions: { books: ["update"] },
-  });
+  const hasPermission = await authService.canPerformAction("books", "update");
 
   if (!hasPermission) {
     throw new Error("Permission denied: Cannot update books");
@@ -206,9 +202,7 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
 // Delete book (soft delete)
 export const deleteBook = async (id: string): Promise<boolean> => {
   // Check permission first
-  const hasPermission = await authClient.organization.hasPermission({
-    permissions: { books: ["delete"] },
-  });
+  const hasPermission = await authService.canPerformAction("books", "delete");
 
   if (!hasPermission) {
     throw new Error("Permission denied: Cannot delete books");

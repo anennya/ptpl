@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { authClient } from "../lib/auth-client";
+import { supabase } from "../lib/supabase";
+
+interface Invitation {
+  id: string;
+  email: string;
+  role: string;
+  organizationId: string;
+}
 
 export default function AcceptInvitation() {
   const { id: invitationId } = useParams();
   const navigate = useNavigate();
-  const [invitation, setInvitation] = useState(null);
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState("");
@@ -13,10 +20,15 @@ export default function AcceptInvitation() {
   useEffect(() => {
     const fetchInvitation = async () => {
       try {
-        const invitationData = await authClient.organization.getInvitation({
-          query: { id: invitationId },
+        const { data, error } = await supabase.functions.invoke('auth-api', {
+          body: {
+            action: 'getInvitation',
+            invitationId
+          }
         });
-        setInvitation(invitationData);
+        
+        if (error) throw error;
+        setInvitation(data);
       } catch (error) {
         console.error("Error fetching invitation:", error);
         setError("Invalid or expired invitation");
@@ -31,9 +43,14 @@ export default function AcceptInvitation() {
   const handleAccept = async () => {
     setAccepting(true);
     try {
-      await authClient.organization.acceptInvitation({
-        invitationId,
+      const { error } = await supabase.functions.invoke('auth-api', {
+        body: {
+          action: 'acceptInvitation',
+          invitationId
+        }
       });
+      
+      if (error) throw error;
       navigate("/dashboard");
     } catch (error) {
       console.error("Error accepting invitation:", error);
