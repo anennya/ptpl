@@ -44,15 +44,30 @@ interface Invitation {
 interface AuthUser {
   id: string;
   email?: string;
+  email_confirmed_at?: string | null;
   user_metadata?: {
     name?: string;
     avatar_url?: string;
+    organization_id?: string;
     [key: string]: unknown;
   };
 }
 
 interface ListUsersResponse {
   users?: AuthUser[];
+}
+
+interface TransformedMember {
+  id: string;
+  organizationId: string;
+  role: string;
+  createdAt: string;
+  userId: string;
+  user: {
+    email: string;
+    name: string;
+    image?: string;
+  };
 }
 
 const rolePermissions: RolePermissions = {
@@ -122,13 +137,13 @@ serve(async (req: Request): Promise<Response> => {
       case "getUserOrganizations":
         return await handleGetUserOrganizations(supabase);
       case "getOrganization":
-        return await handleGetOrganization(body, supabase, supabaseAdmin);
+        return await handleGetOrganization(supabase, supabaseAdmin);
       case "listInvitations":
-        return await handleListInvitations(body, supabase);
+        return await handleListInvitations(supabase);
       case "inviteMember":
         return await handleInviteMember(body, supabase, supabaseAdmin);
       case "cancelInvitation":
-        return await handleCancelInvitation(body, supabase);
+        return await handleCancelInvitation(body, supabase, supabaseAdmin);
       case "updateMemberRole":
         return await handleUpdateMemberRole(body, supabase);
       case "removeMember":
@@ -215,7 +230,6 @@ async function getCurrentUserOrganization(supabase: SupabaseClient) {
 }
 
 async function handleGetOrganization(
-  body: RequestBody,
   supabase: SupabaseClient,
   supabaseAdmin: SupabaseClient,
 ): Promise<Response> {
@@ -234,15 +248,12 @@ async function handleGetOrganization(
     }
 
     // Get user details for each member
-    const transformedMembers = [];
+    const transformedMembers: TransformedMember[] = [];
     if (members) {
       for (const member of members) {
-        const { data: userData, error: userError } =
-          await supabaseAdmin.auth.admin.getUserById(member.user_id);
-
-        if (userError) {
-          console.error(`Error getting user ${member.user_id}:`, userError);
-        }
+        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(
+          member.user_id,
+        );
 
         transformedMembers.push({
           id: member.id,
@@ -289,7 +300,6 @@ async function handleGetOrganization(
 }
 
 async function handleListInvitations(
-  body: RequestBody,
   supabase: SupabaseClient,
 ): Promise<Response> {
   try {
@@ -398,7 +408,22 @@ async function handleInviteMember(
       }
     }
 
-    // Create invitation
+    // Send invitation via Supabase Auth
+    const { error: authError } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          organization_id: userOrg.organizationId,
+          role: role,
+          invited_by: user.id,
+        },
+        redirectTo: `${Deno.env.get("SITE_URL") || "http://localhost:5173"}/accept-invitation`,
+      });
+
+    if (authError) {
+      throw authError;
+    }
+
+    // Create invitation record in database for tracking
     const { data: invitation, error } = await supabase
       .from("invitations")
       .insert({
@@ -440,6 +465,7 @@ async function handleInviteMember(
 async function handleCancelInvitation(
   body: RequestBody,
   supabase: SupabaseClient,
+  supabaseAdmin: SupabaseClient,
 ): Promise<Response> {
   try {
     const { invitationId } = body;
@@ -462,6 +488,40 @@ async function handleCancelInvitation(
       });
     }
 
+    // Get the invitation to find the email
+    const { data: invitationData, error: fetchError } = await supabase
+      .from("invitations")
+      .select("email")
+      .eq("id", invitationId)
+      .eq("organization_id", userOrg.organizationId)
+      .single();
+
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    // Cancel the Supabase Auth invitation
+    try {
+      // Get the user by email to find their auth record
+      const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const authUser = authUsers?.users?.find(
+        (u: AuthUser) =>
+          u.email === invitationData.email &&
+          u.email_confirmed_at === null &&
+          // Check if this user was created as an invitation (has our metadata)
+          u.user_metadata?.organization_id === userOrg.organizationId,
+      );
+
+      if (authUser) {
+        // This is specifically our invitation - safe to delete
+        await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      }
+    } catch (authError) {
+      console.error("Error canceling auth invitation:", authError);
+      // Continue with database update even if auth cancellation fails
+    }
+
+    // Update the invitation status in database
     const { error } = await supabase
       .from("invitations")
       .update({ status: "canceled" })
