@@ -166,27 +166,44 @@ async function getCurrentUser(supabase: SupabaseClient) {
 async function getCurrentUserOrganization(supabase: SupabaseClient) {
   const user = await getCurrentUser(supabase);
 
-  // First, get the user's membership
+  // First, get the user's membership (take the first one if multiple exist)
   const { data: membership, error: memberError } = await supabase
     .from("organization_members")
     .select("organization_id, role")
     .eq("user_id", user.id)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
-  if (memberError || !membership) {
+  if (memberError) {
     console.error("getCurrentUserOrganization membership error:", memberError);
+    throw new Error("Error fetching user membership");
+  }
+
+  if (!membership) {
+    console.error(
+      "getCurrentUserOrganization: No membership found for user:",
+      user.id,
+    );
     throw new Error("User is not a member of any organization");
   }
 
   // Then get the organization details
   const { data: organization, error: orgError } = await supabase
     .from("organizations")
-    .select("id, name, description, created_at")
+    .select("id, name, created_at")
     .eq("id", membership.organization_id)
-    .single();
+    .maybeSingle();
 
-  if (orgError || !organization) {
+  if (orgError) {
     console.error("getCurrentUserOrganization org error:", orgError);
+    throw new Error("Error fetching organization details");
+  }
+
+  if (!organization) {
+    console.error(
+      "getCurrentUserOrganization: Organization not found:",
+      membership.organization_id,
+    );
     throw new Error("Organization not found");
   }
 
