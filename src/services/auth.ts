@@ -19,7 +19,12 @@ export async function getSession() {
     data: { session },
     error,
   } = await supabase.auth.getSession();
-  if (error) throw error;
+  if (error) {
+    console.error("Session error:", error);
+    // Clear potentially corrupted session
+    await supabase.auth.signOut();
+    throw error;
+  }
   return session;
 }
 

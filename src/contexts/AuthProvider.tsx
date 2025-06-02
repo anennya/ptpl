@@ -25,10 +25,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const currentUser = await authService.getUser();
-        setUser(currentUser);
+        // First check if we have a valid session
+        const session = await authService.getSession();
+
+        if (session && session.user) {
+          const currentUser = await authService.getUser();
+          setUser(currentUser);
+        } else {
+          // No valid session
+          setUser(null);
+        }
       } catch (error) {
         console.error("AuthProvider: Failed to get user:", error);
+        // Clear any corrupted session data
+        await authService.signOut();
         setUser(null);
       } finally {
         setLoading(false);

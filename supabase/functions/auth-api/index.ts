@@ -1,3 +1,4 @@
+// supabase/functions/auth-api/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   createClient,
@@ -30,23 +31,6 @@ interface RolePermissions {
   };
 }
 
-interface DatabaseUser {
-  email?: string;
-  raw_user_meta_data?: {
-    name?: string;
-    avatar_url?: string;
-  };
-}
-
-interface OrganizationMember {
-  id: string;
-  organization_id: string;
-  role: string;
-  created_at: string;
-  user_id: string;
-  users?: DatabaseUser;
-}
-
 interface Invitation {
   id: string;
   email: string;
@@ -60,7 +44,11 @@ interface Invitation {
 interface AuthUser {
   id: string;
   email?: string;
-  user_metadata?: any;
+  user_metadata?: {
+    name?: string;
+    avatar_url?: string;
+    [key: string]: unknown;
+  };
 }
 
 interface ListUsersResponse {
@@ -134,9 +122,9 @@ serve(async (req: Request): Promise<Response> => {
       case "getUserOrganizations":
         return await handleGetUserOrganizations(supabase);
       case "getOrganization":
-        return await handleGetOrganization(supabase);
+        return await handleGetOrganization(body, supabase, supabaseAdmin);
       case "listInvitations":
-        return await handleListInvitations(supabase);
+        return await handleListInvitations(body, supabase);
       case "inviteMember":
         return await handleInviteMember(body, supabase, supabaseAdmin);
       case "cancelInvitation":
@@ -178,79 +166,84 @@ async function getCurrentUser(supabase: SupabaseClient) {
 async function getCurrentUserOrganization(supabase: SupabaseClient) {
   const user = await getCurrentUser(supabase);
 
-  const { data: membership, error } = await supabase
+  // First, get the user's membership
+  const { data: membership, error: memberError } = await supabase
     .from("organization_members")
-    .select(
-      `
-      organization_id,
-      role,
-      organizations (
-        id,
-        name,
-        description,
-        created_at
-      )
-    `,
-    )
+    .select("organization_id, role")
     .eq("user_id", user.id)
     .single();
 
-  if (error || !membership) {
+  if (memberError || !membership) {
+    console.error("getCurrentUserOrganization membership error:", memberError);
     throw new Error("User is not a member of any organization");
+  }
+
+  // Then get the organization details
+  const { data: organization, error: orgError } = await supabase
+    .from("organizations")
+    .select("id, name, description, created_at")
+    .eq("id", membership.organization_id)
+    .single();
+
+  if (orgError || !organization) {
+    console.error("getCurrentUserOrganization org error:", orgError);
+    throw new Error("Organization not found");
   }
 
   return {
     organizationId: membership.organization_id,
     role: membership.role,
-    organization: membership.organizations,
+    organization: organization,
   };
 }
 
 async function handleGetOrganization(
+  body: RequestBody,
   supabase: SupabaseClient,
+  supabaseAdmin: SupabaseClient,
 ): Promise<Response> {
   try {
+    await getCurrentUser(supabase);
     const userOrg = await getCurrentUserOrganization(supabase);
 
-    // Get organization members with user details
+    // Get organization members
     const { data: members, error: membersError } = await supabase
       .from("organization_members")
-      .select(
-        `
-        id,
-        organization_id,
-        role,
-        created_at,
-        user_id,
-        users:user_id (
-          email,
-          raw_user_meta_data
-        )
-      `,
-      )
+      .select("id, organization_id, role, created_at, user_id")
       .eq("organization_id", userOrg.organizationId);
 
     if (membersError) {
       throw membersError;
     }
 
-    // Transform members data to match expected format
-    const transformedMembers =
-      members?.map((member: OrganizationMember) => ({
-        id: member.id,
-        organizationId: member.organization_id,
-        role: member.role,
-        createdAt: member.created_at,
-        userId: member.user_id,
-        user: {
-          email: member.users?.email || "Unknown",
-          name:
-            member.users?.raw_user_meta_data?.name ||
-            member.users?.email ||
-            "Unknown",
-          image: member.users?.raw_user_meta_data?.avatar_url,
-        },
-      })) || [];
+    // Get user details for each member
+    const transformedMembers = [];
+    if (members) {
+      for (const member of members) {
+        const { data: userData, error: userError } =
+          await supabaseAdmin.auth.admin.getUserById(member.user_id);
+
+        if (userError) {
+          console.error(`Error getting user ${member.user_id}:`, userError);
+        }
+
+        transformedMembers.push({
+          id: member.id,
+          organizationId: member.organization_id,
+          role: member.role,
+          createdAt: member.created_at,
+          userId: member.user_id,
+          user: {
+            email: userData?.user?.email || "Unknown",
+            name:
+              userData?.user?.user_metadata?.name ||
+              userData?.user?.email ||
+              "Unknown",
+            image: userData?.user?.user_metadata?.avatar_url,
+          },
+        });
+      }
+    }
 
     return new Response(
       JSON.stringify({
@@ -279,9 +272,11 @@ async function handleGetOrganization(
 }
 
 async function handleListInvitations(
+  body: RequestBody,
   supabase: SupabaseClient,
 ): Promise<Response> {
   try {
+    await getCurrentUser(supabase);
     const userOrg = await getCurrentUserOrganization(supabase);
 
     const { data: invitations, error } = await supabase
@@ -352,26 +347,42 @@ async function handleInviteMember(
       });
     }
 
-    // Check if user already exists and is already a member
-    const { data: existingMember } = await supabase
-      .from("organization_members")
-      .select("id")
-      .eq("organization_id", userOrg.organizationId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // Check if email is already a member of the organization
+    const { data: listUsersResponse, error: listError } =
+      await supabaseAdmin.auth.admin.listUsers();
 
-    if (existingMember) {
-      return new Response(
-        JSON.stringify({ error: "User is already a member" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+    if (listError) {
+      return new Response(JSON.stringify({ error: "Failed to lookup user" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const existingUser = (listUsersResponse as ListUsersResponse)?.users?.find(
+      (u: AuthUser) => u.email === email,
+    );
+
+    if (existingUser) {
+      const { data: existingMember } = await supabase
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", userOrg.organizationId)
+        .eq("user_id", existingUser.id)
+        .maybeSingle();
+
+      if (existingMember) {
+        return new Response(
+          JSON.stringify({ error: "User is already a member" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     // Create invitation
-    const { data: invitation, error } = await supabaseAdmin
+    const { data: invitation, error } = await supabase
       .from("invitations")
       .insert({
         email,
@@ -423,6 +434,7 @@ async function handleCancelInvitation(
       });
     }
 
+    await getCurrentUser(supabase);
     const userOrg = await getCurrentUserOrganization(supabase);
 
     // Check if user is admin
@@ -480,6 +492,7 @@ async function handleUpdateMemberRole(
       );
     }
 
+    await getCurrentUser(supabase);
     const userOrg = await getCurrentUserOrganization(supabase);
 
     // Check if user is admin
@@ -534,6 +547,7 @@ async function handleRemoveMember(
       });
     }
 
+    await getCurrentUser(supabase);
     const userOrg = await getCurrentUserOrganization(supabase);
 
     // Check if user is admin
