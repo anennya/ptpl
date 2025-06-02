@@ -9,6 +9,7 @@ import MainLayout from "./layouts/MainLayout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import AuthConfirm from "./pages/AuthConfirm";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import MemberDetail from "./pages/MemberDetail";
@@ -25,6 +26,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/confirm" element={<AuthConfirm />} />
           <Route path="/accept-invitation/:id" element={<AcceptInvitation />} />
 
           <Route element={<MainLayout />}>

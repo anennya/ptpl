@@ -412,21 +412,6 @@ async function handleInviteMember(
       }
     }
 
-    // Send invitation via Supabase Auth
-    const { error: authError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: {
-          organization_id: userOrg.organizationId,
-          role: role,
-          invited_by: user.id,
-        },
-        redirectTo: `${Deno.env.get("SITE_URL") || "http://localhost:5173"}/accept-invitation`,
-      });
-
-    if (authError) {
-      throw authError;
-    }
-
     // Create invitation record in database for tracking
     const { data: invitation, error } = await supabase
       .from("invitations")
@@ -444,6 +429,22 @@ async function handleInviteMember(
 
     if (error) {
       throw error;
+    }
+
+    // Send invitation via Supabase Auth
+    const { error: authError } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          organization_id: userOrg.organizationId,
+          role: role,
+          invited_by: user.id,
+          invitation_id: invitation.id,
+        },
+        redirectTo: `${Deno.env.get("SITE_URL") || "http://localhost:5173"}/auth/confirm?type=invite&invitation_id=${invitation.id}`,
+      });
+
+    if (authError) {
+      throw authError;
     }
 
     return new Response(JSON.stringify({ success: true, invitation }), {
