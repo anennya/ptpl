@@ -3,11 +3,11 @@ import { getBookById, updateBook } from './bookService';
 import { getMemberById, updateMember } from './memberService';
 
 // Borrow a book
-export const borrowBook = (
+export const borrowBook = async (
   bookId: string,
   memberId: string
-): { success: boolean; message: string; record?: BorrowRecord } => {
-  const book = getBookById(bookId);
+): Promise<{ success: boolean; message: string; record?: BorrowRecord }> => {
+  const book = await getBookById(bookId);
   const member = getMemberById(memberId);
   
   // Validate book and member
@@ -48,11 +48,11 @@ export const borrowBook = (
   
   // Update book status
   const updatedBook: Book = {
-    ...book,
+    ...book!,
     status: 'Borrowed',
     borrowedBy: memberId,
     dueDate,
-    borrowCount: book.borrowCount + 1,
+    borrowCount: book!.borrowCount + 1,
   };
   
   // Update member's borrowed books
@@ -67,7 +67,7 @@ export const borrowBook = (
   localStorage.setItem('borrowRecords', JSON.stringify([...records, borrowRecord]));
   
   // Save updated book and member
-  updateBook(updatedBook);
+  await updateBook(updatedBook);
   updateMember(updatedMember);
   
   return { 
@@ -78,11 +78,11 @@ export const borrowBook = (
 };
 
 // Return a book
-export const returnBook = (
+export const returnBook = async (
   bookId: string,
   memberId: string
-): { success: boolean; message: string; fine?: number } => {
-  const book = getBookById(bookId);
+): Promise<{ success: boolean; message: string; fine?: number }> => {
+  const book = await getBookById(bookId);
   const member = getMemberById(memberId);
   
   // Validate book and member
@@ -133,7 +133,7 @@ export const returnBook = (
   
   // Update book status
   const updatedBook: Book = {
-    ...book,
+    ...book!,
     status: 'Available',
     borrowedBy: undefined,
     dueDate: undefined,
@@ -149,7 +149,7 @@ export const returnBook = (
   
   // Save changes
   localStorage.setItem('borrowRecords', JSON.stringify(records));
-  updateBook(updatedBook);
+  await updateBook(updatedBook);
   updateMember(updatedMember);
   
   return { 
@@ -162,11 +162,11 @@ export const returnBook = (
 };
 
 // Renew a book
-export const renewBook = (
+export const renewBook = async (
   bookId: string,
   memberId: string
-): { success: boolean; message: string; newDueDate?: Date } => {
-  const book = getBookById(bookId);
+): Promise<{ success: boolean; message: string; newDueDate?: Date }> => {
+  const book = await getBookById(bookId);
   const member = getMemberById(memberId);
   
   // Validate book and member
@@ -216,13 +216,13 @@ export const renewBook = (
   
   // Update book due date
   const updatedBook: Book = {
-    ...book,
+    ...book!,
     dueDate: newDueDate,
   };
   
   // Save changes
   localStorage.setItem('borrowRecords', JSON.stringify(records));
-  updateBook(updatedBook);
+  await updateBook(updatedBook);
   
   return { 
     success: true, 

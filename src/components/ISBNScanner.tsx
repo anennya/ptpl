@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import Quagga from '@ericblade/quagga2';
+import React, { useEffect, useRef, useState } from "react";
+import Quagga from "@ericblade/quagga2";
 
 interface ISBNScannerProps {
   onDetected: (isbn: string) => void;
@@ -12,7 +12,7 @@ const ISBNScanner: React.FC<ISBNScannerProps> = ({ onDetected, onError }) => {
 
   useEffect(() => {
     if (!scannerRef.current) {
-      console.error('Scanner ref not available');
+      console.error("Scanner ref not available");
       return;
     }
 
@@ -32,16 +32,16 @@ const ISBNScanner: React.FC<ISBNScannerProps> = ({ onDetected, onError }) => {
               top: "0%",
               right: "0%",
               left: "0%",
-              bottom: "0%"
-            }
+              bottom: "0%",
+            },
           },
           decoder: {
             readers: ["ean_reader", "ean_8_reader"],
-            multiple: false
+            multiple: false,
           },
           locate: true,
           numOfWorkers: 4,
-          frequency: 10
+          frequency: 10,
         });
 
         Quagga.start();
@@ -57,8 +57,10 @@ const ISBNScanner: React.FC<ISBNScannerProps> = ({ onDetected, onError }) => {
           }
         });
       } catch (error) {
-        console.error('Failed to initialize scanner:', error);
-        onError('Failed to access camera. Please ensure camera permissions are granted and try again.');
+        console.error("Failed to initialize scanner:", error);
+        onError(
+          "Failed to access camera. Please ensure camera permissions are granted and try again.",
+        );
       }
     };
 
@@ -76,7 +78,7 @@ const ISBNScanner: React.FC<ISBNScannerProps> = ({ onDetected, onError }) => {
       <div
         ref={scannerRef}
         className="w-full aspect-video rounded-lg overflow-hidden bg-black"
-        style={{ minHeight: '300px' }}
+        style={{ minHeight: "300px" }}
       />
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-x-0 top-1/2 h-0.5 bg-primary-500/50" />
