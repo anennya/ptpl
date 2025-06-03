@@ -70,6 +70,19 @@ interface TransformedMember {
   };
 }
 
+interface TransformedMember {
+  id: string;
+  organizationId: string;
+  role: string;
+  createdAt: string;
+  userId: string;
+  user: {
+    email: string;
+    name: string;
+    image?: string;
+  };
+}
+
 const rolePermissions: RolePermissions = {
   admin: {
     can: ["read:*", "write:*", "delete:*"],
@@ -83,8 +96,6 @@ const rolePermissions: RolePermissions = {
 };
 
 serve(async (req: Request): Promise<Response> => {
-  console.log("🚀 auth-api function called with method:", req.method, "url:", req.url);
-  
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -127,7 +138,6 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const { action } = body;
-    console.log("📝 Processing action:", action, "with body:", body);
 
     switch (action) {
       case "add_member":
@@ -244,8 +254,8 @@ async function handleGetOrganization(
     await getCurrentUser(supabase);
     const userOrg = await getCurrentUserOrganization(supabase);
 
-    // Get organization members
-    const { data: members, error: membersError } = await supabase
+    // Get organization members using admin client to bypass RLS restrictions
+    const { data: members, error: membersError } = await supabaseAdmin
       .from("organization_members")
       .select("id, organization_id, role, created_at, user_id")
       .eq("organization_id", userOrg.organizationId);
@@ -254,29 +264,50 @@ async function handleGetOrganization(
       throw membersError;
     }
 
-    // Get user details for each member
+    // Get user details for each member using admin client to bypass RLS
     const transformedMembers: TransformedMember[] = [];
     if (members) {
       for (const member of members) {
-        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(
-          member.user_id,
-        );
+        try {
+          const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(
+            member.user_id,
+          );
 
-        transformedMembers.push({
-          id: member.id,
-          organizationId: member.organization_id,
-          role: member.role,
-          createdAt: member.created_at,
-          userId: member.user_id,
-          user: {
-            email: userData?.user?.email || "Unknown",
-            name:
-              userData?.user?.user_metadata?.name ||
-              userData?.user?.email ||
-              "Unknown",
-            image: userData?.user?.user_metadata?.avatar_url,
-          },
-        });
+          // Include member even if user data fetch fails
+          transformedMembers.push({
+            id: member.id,
+            organizationId: member.organization_id,
+            role: member.role,
+            createdAt: member.created_at,
+            userId: member.user_id,
+            user: {
+              email: userData?.user?.email || "Unknown",
+              name:
+                userData?.user?.user_metadata?.name ||
+                userData?.user?.email ||
+                "Unknown",
+              image: userData?.user?.user_metadata?.avatar_url,
+            },
+          });
+
+          if (userError) {
+            console.warn(`Failed to fetch user data for ${member.user_id}:`, userError);
+          }
+        } catch (error) {
+          console.warn(`Error fetching user data for ${member.user_id}:`, error);
+          // Still include the member with minimal data
+          transformedMembers.push({
+            id: member.id,
+            organizationId: member.organization_id,
+            role: member.role,
+            createdAt: member.created_at,
+            userId: member.user_id,
+            user: {
+              email: "Unknown",
+              name: "Unknown",
+            },
+          });
+        }
       }
     }
 
@@ -926,22 +957,17 @@ async function handleAcceptInvitation(
   supabaseAdmin: SupabaseClient,
 ): Promise<Response> {
   try {
-    console.log("handleAcceptInvitation started with body:", body);
     const { invitationId } = body;
 
     if (!invitationId) {
-      console.log("Missing invitationId");
       return new Response(JSON.stringify({ error: "Missing invitationId" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("Getting current user...");
     const user = await getCurrentUser(supabase);
-    console.log("Current user:", user.id, user.email);
 
-    console.log("Fetching invitation:", invitationId);
     const { data: invitation, error: inviteError } = await supabase
       .from("invitations")
       .select("*")
@@ -954,7 +980,6 @@ async function handleAcceptInvitation(
     }
 
     if (inviteError || !invitation) {
-      console.log("Invitation not found or error:", inviteError);
       return new Response(
         JSON.stringify({ error: "Invitation not found or expired" }),
         {
@@ -964,20 +989,13 @@ async function handleAcceptInvitation(
       );
     }
 
-    console.log("Found invitation:", invitation);
-
     if (user.email !== invitation.email) {
-      console.log("Email mismatch:", user.email, "vs", invitation.email);
-      return new Response(
-        JSON.stringify({ error: "Email mismatch" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ error: "Email mismatch" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    console.log("Checking for existing membership...");
     const { data: existingMember, error: memberCheckError } = await supabase
       .from("organization_members")
       .select("id")
@@ -991,7 +1009,6 @@ async function handleAcceptInvitation(
     }
 
     if (existingMember) {
-      console.log("User already a member, updating invitation status...");
       const { error: updateError } = await supabaseAdmin
         .from("invitations")
         .update({ status: "accepted" })
@@ -1002,13 +1019,11 @@ async function handleAcceptInvitation(
         throw updateError;
       }
 
-      console.log("Invitation status updated successfully");
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("Adding user to organization...");
     const { error: memberError } = await supabaseAdmin
       .from("organization_members")
       .insert({
@@ -1022,7 +1037,6 @@ async function handleAcceptInvitation(
       throw memberError;
     }
 
-    console.log("User added to organization, updating invitation status...");
     const { error: updateError } = await supabaseAdmin
       .from("invitations")
       .update({ status: "accepted" })
@@ -1033,7 +1047,6 @@ async function handleAcceptInvitation(
       throw updateError;
     }
 
-    console.log("Invitation accepted successfully");
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
