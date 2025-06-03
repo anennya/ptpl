@@ -50,8 +50,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = authService.onAuthStateChange((user) => {
-      setUser(user);
+    } = authService.onAuthStateChange(async (user) => {
+      if (user) {
+        // Fetch full user data with organization info
+        try {
+          const fullUser = await authService.getUser();
+          setUser(fullUser);
+        } catch (error) {
+          console.error("Failed to fetch full user data:", error);
+          setUser(user); // Fall back to basic user info
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 

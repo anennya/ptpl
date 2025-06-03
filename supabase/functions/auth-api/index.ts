@@ -83,6 +83,8 @@ const rolePermissions: RolePermissions = {
 };
 
 serve(async (req: Request): Promise<Response> => {
+  console.log("🚀 auth-api function called with method:", req.method, "url:", req.url);
+  
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -125,6 +127,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const { action } = body;
+    console.log("📝 Processing action:", action, "with body:", body);
 
     switch (action) {
       case "add_member":
@@ -151,7 +154,7 @@ serve(async (req: Request): Promise<Response> => {
       case "getInvitation":
         return await handleGetInvitation(body, supabase);
       case "acceptInvitation":
-        return await handleAcceptInvitation(body, supabase);
+        return await handleAcceptInvitation(body, supabase, supabaseAdmin);
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action", providedAction: action }),
@@ -920,19 +923,25 @@ async function handleGetInvitation(
 async function handleAcceptInvitation(
   body: RequestBody,
   supabase: SupabaseClient,
+  supabaseAdmin: SupabaseClient,
 ): Promise<Response> {
   try {
+    console.log("handleAcceptInvitation started with body:", body);
     const { invitationId } = body;
 
     if (!invitationId) {
+      console.log("Missing invitationId");
       return new Response(JSON.stringify({ error: "Missing invitationId" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log("Getting current user...");
     const user = await getCurrentUser(supabase);
+    console.log("Current user:", user.id, user.email);
 
+    console.log("Fetching invitation:", invitationId);
     const { data: invitation, error: inviteError } = await supabase
       .from("invitations")
       .select("*")
@@ -940,7 +949,12 @@ async function handleAcceptInvitation(
       .eq("status", "pending")
       .single();
 
+    if (inviteError) {
+      console.error("Error fetching invitation:", inviteError);
+    }
+
     if (inviteError || !invitation) {
+      console.log("Invitation not found or error:", inviteError);
       return new Response(
         JSON.stringify({ error: "Invitation not found or expired" }),
         {
@@ -950,7 +964,10 @@ async function handleAcceptInvitation(
       );
     }
 
+    console.log("Found invitation:", invitation);
+
     if (user.email !== invitation.email) {
+      console.log("Email mismatch:", user.email, "vs", invitation.email);
       return new Response(
         JSON.stringify({ error: "Email mismatch" }),
         {
@@ -960,25 +977,39 @@ async function handleAcceptInvitation(
       );
     }
 
-    const { data: existingMember } = await supabase
+    console.log("Checking for existing membership...");
+    const { data: existingMember, error: memberCheckError } = await supabase
       .from("organization_members")
       .select("id")
       .eq("organization_id", invitation.organization_id)
       .eq("user_id", user.id)
       .maybeSingle();
 
+    if (memberCheckError) {
+      console.error("Error checking existing membership:", memberCheckError);
+      throw memberCheckError;
+    }
+
     if (existingMember) {
-      await supabase
+      console.log("User already a member, updating invitation status...");
+      const { error: updateError } = await supabaseAdmin
         .from("invitations")
         .update({ status: "accepted" })
         .eq("id", invitationId);
 
+      if (updateError) {
+        console.error("Error updating invitation status:", updateError);
+        throw updateError;
+      }
+
+      console.log("Invitation status updated successfully");
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { error: memberError } = await supabase
+    console.log("Adding user to organization...");
+    const { error: memberError } = await supabaseAdmin
       .from("organization_members")
       .insert({
         organization_id: invitation.organization_id,
@@ -987,18 +1018,22 @@ async function handleAcceptInvitation(
       });
 
     if (memberError) {
+      console.error("Error adding member:", memberError);
       throw memberError;
     }
 
-    const { error: updateError } = await supabase
+    console.log("User added to organization, updating invitation status...");
+    const { error: updateError } = await supabaseAdmin
       .from("invitations")
       .update({ status: "accepted" })
       .eq("id", invitationId);
 
     if (updateError) {
+      console.error("Error updating invitation status:", updateError);
       throw updateError;
     }
 
+    console.log("Invitation accepted successfully");
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

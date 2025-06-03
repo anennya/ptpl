@@ -18,61 +18,89 @@ export default function AuthConfirm() {
 
   const handleInvitationAcceptance = async () => {
     try {
-      const { error } = await supabase.functions.invoke('auth-api', {
+      console.log("🔄 Starting invitation acceptance for ID:", invitationId);
+
+      const { data, error } = await supabase.functions.invoke("auth-api", {
         body: {
-          action: 'acceptInvitation',
-          invitationId
-        }
+          action: "acceptInvitation",
+          invitationId,
+        },
       });
-      
+
+      console.log("📦 Function response:", { data, error });
+
       if (error) throw error;
-      
-      setSuccess("Invitation accepted successfully! Redirecting to dashboard...");
+
+      console.log("✅ Invitation accepted successfully");
+      setSuccess(
+        "Invitation accepted successfully! Redirecting to dashboard...",
+      );
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err) {
-      console.error("Error accepting invitation:", err);
+      console.error("❌ Error accepting invitation:", err);
       setError("Failed to accept invitation. Please try again.");
     } finally {
       setLoading(false);
+      setSettingPassword(false);
     }
   };
 
   useEffect(() => {
-    const handleAuthConfirmation = async () => {
-      try {
-        const { data, error: authError } = await supabase.auth.getSession();
-        
-        if (authError) {
-          console.error("Auth error:", authError);
-          setError("Failed to confirm email. Please try again.");
-          setLoading(false);
-          return;
-        }
+    const checkForErrors = () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const error = hashParams.get("error");
+      const errorDescription = hashParams.get("error_description");
 
-        if (data?.session?.user) {
-          if (type === "invite" && invitationId) {
-            await handleInvitationAcceptance();
-          } else {
-            setSuccess("Email confirmed successfully!");
-            setTimeout(() => navigate("/dashboard"), 2000);
-          }
+      if (error) {
+        if (
+          error === "access_denied" &&
+          errorDescription?.includes("expired")
+        ) {
+          setError(
+            "The invitation link has expired or already been used. Please contact an admin for a new invitation.",
+          );
         } else {
-          setNeedsPassword(true);
-          setLoading(false);
+          setError(`Authentication error: ${errorDescription || error}`);
         }
-      } catch (err) {
-        console.error("Confirmation error:", err);
-        setError("Something went wrong. Please try again.");
         setLoading(false);
+        return true;
       }
+      return false;
     };
 
-    handleAuthConfirmation();
+    // Check for auth errors first
+    if (checkForErrors()) {
+      return;
+    }
+
+    // Check current session
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        // User is authenticated - for invites, show password form, otherwise accept invitation
+        if (type === "invite" && invitationId) {
+          setNeedsPassword(true);
+        } else {
+          setSuccess("Email confirmed successfully!");
+          setTimeout(() => navigate("/dashboard"), 2000);
+        }
+      } else {
+        setError(
+          "Unable to verify your email. The link may have expired. Please contact an admin for a new invitation.",
+        );
+      }
+      setLoading(false);
+    };
+
+    checkSession();
   }, [type, invitationId, navigate]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
+    console.log("🔥 handlePasswordSubmit called!");
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       setError("Passwords don't match");
       return;
@@ -87,14 +115,25 @@ export default function AuthConfirm() {
     setError("");
 
     try {
+      console.log("🔑 About to call updateUser");
       const { error: updateError } = await supabase.auth.updateUser({
-        password: password
+        password: password,
       });
+      console.log("🔑 updateUser completed, error:", updateError);
 
       if (updateError) throw updateError;
 
+      console.log(
+        "🔑 Password updated successfully, type:",
+        type,
+        "invitationId:",
+        invitationId,
+      );
+
       if (type === "invite" && invitationId) {
+        console.log("🔑 About to call handleInvitationAcceptance");
         await handleInvitationAcceptance();
+        console.log("🔑 handleInvitationAcceptance completed");
       } else {
         setSuccess("Password set successfully! Redirecting...");
         setTimeout(() => navigate("/dashboard"), 2000);
@@ -134,17 +173,19 @@ export default function AuthConfirm() {
               Set Your Password
             </h2>
             <p className="mt-2 text-center text-sm text-gray-600">
-              {type === "invite" 
+              {type === "invite"
                 ? "Complete your invitation by setting a password"
-                : "Please set a password for your account"
-              }
+                : "Please set a password for your account"}
             </p>
           </div>
-          
+
           <form className="mt-8 space-y-6" onSubmit={handlePasswordSubmit}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Password
                 </label>
                 <input
@@ -158,9 +199,12 @@ export default function AuthConfirm() {
                   placeholder="Enter your password"
                 />
               </div>
-              
+
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Confirm Password
                 </label>
                 <input
@@ -177,9 +221,7 @@ export default function AuthConfirm() {
             </div>
 
             {error && (
-              <div className="text-red-600 text-sm text-center">
-                {error}
-              </div>
+              <div className="text-red-600 text-sm text-center">{error}</div>
             )}
 
             <div>
@@ -205,17 +247,29 @@ export default function AuthConfirm() {
             <>
               <div className="mx-auto h-12 w-12 text-green-600">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
-              <h2 className="mt-6 text-2xl font-bold text-gray-900">Success!</h2>
+              <h2 className="mt-6 text-2xl font-bold text-gray-900">
+                Success!
+              </h2>
               <p className="mt-2 text-sm text-gray-600">{success}</p>
             </>
           ) : (
             <>
               <div className="mx-auto h-12 w-12 text-red-600">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </div>
               <h2 className="mt-6 text-2xl font-bold text-gray-900">Error</h2>

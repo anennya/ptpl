@@ -227,10 +227,15 @@ export async function canPerformAction(
 
 // Auth state change listener
 export function onAuthStateChange(callback: (user: User | null) => void) {
-  return supabase.auth.onAuthStateChange(async (_, session) => {
+  return supabase.auth.onAuthStateChange((_, session) => {
     if (session?.user) {
-      const user = await getUser();
-      callback(user);
+      // Don't make async calls in the auth state change handler
+      // Instead, just pass basic user info and let the caller fetch full user data
+      callback({
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.user_metadata?.name || session.user.email!,
+      });
     } else {
       callback(null);
     }
