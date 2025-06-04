@@ -269,9 +269,8 @@ async function handleGetOrganization(
     if (members) {
       for (const member of members) {
         try {
-          const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(
-            member.user_id,
-          );
+          const { data: userData, error: userError } =
+            await supabaseAdmin.auth.admin.getUserById(member.user_id);
 
           // Include member even if user data fetch fails
           transformedMembers.push({
@@ -291,10 +290,16 @@ async function handleGetOrganization(
           });
 
           if (userError) {
-            console.warn(`Failed to fetch user data for ${member.user_id}:`, userError);
+            console.warn(
+              `Failed to fetch user data for ${member.user_id}:`,
+              userError,
+            );
           }
         } catch (error) {
-          console.warn(`Error fetching user data for ${member.user_id}:`, error);
+          console.warn(
+            `Error fetching user data for ${member.user_id}:`,
+            error,
+          );
           // Still include the member with minimal data
           transformedMembers.push({
             id: member.id,
@@ -791,10 +796,10 @@ async function handleCheckPermission(
   body: RequestBody,
   supabase: SupabaseClient,
 ): Promise<Response> {
-  const { organizationId, actionType, resource, permission } = body;
+  const { actionType, resource, permission } = body;
   const checkAction = actionType || permission;
 
-  if (!organizationId || !checkAction || !resource) {
+  if (!checkAction || !resource) {
     return new Response(JSON.stringify({ error: "Missing required fields" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
