@@ -817,11 +817,13 @@ async function handleCheckPermission(
     );
   }
 
+  const userOrg = await getCurrentUserOrganization(supabase);
+
   // Get user's role in the organization
   const { data: membership, error: membershipError } = await supabase
     .from("organization_members")
     .select("role")
-    .eq("organization_id", organizationId)
+    .eq("organization_id", userOrg.organizationId)
     .eq("user_id", authData.user.id)
     .maybeSingle();
 
