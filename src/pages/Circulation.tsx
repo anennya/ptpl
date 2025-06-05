@@ -24,6 +24,7 @@ const Circulation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [borrowedBooks, setBorrowedBooks] = useState<Book[]>([]);
 
   useEffect(() => {
     const initializeFromParams = async () => {
@@ -68,6 +69,25 @@ const Circulation: React.FC = () => {
     
     initializeFromParams();
   }, [initialBookId, initialMemberId]);
+
+  useEffect(() => {
+    const loadBorrowedBooks = async () => {
+      if (selectedMember && selectedMember.borrowedBooks.length > 0) {
+        try {
+          const books = await Promise.all(
+            selectedMember.borrowedBooks.map(bookId => getBookById(bookId))
+          );
+          setBorrowedBooks(books.filter((book): book is Book => book !== null));
+        } catch (err) {
+          console.error('Error loading borrowed books:', err);
+        }
+      } else {
+        setBorrowedBooks([]);
+      }
+    };
+
+    loadBorrowedBooks();
+  }, [selectedMember]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -522,33 +542,28 @@ const Circulation: React.FC = () => {
                 <>
                   <h3 className="text-xl font-medium mt-4">Books to Return:</h3>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {selectedMember.borrowedBooks.map(bookId => {
-                      const book = getBookById(bookId);
-                      if (!book) return null;
-                      
-                      return (
-                        <div 
-                          key={book.id}
-                          onClick={() => handleSelectBook(book)}
-                          className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
-                              <p className="text-gray-600">{book.author}</p>
-                              <p className="text-sm text-gray-500 mt-1">
-                                {book.dueDate && `Due: ${new Date(book.dueDate).toLocaleDateString()}`}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
-                                Borrowed
-                              </span>
-                            </div>
+                    {borrowedBooks.map(book => (
+                      <div 
+                        key={book.id}
+                        onClick={() => handleSelectBook(book)}
+                        className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
+                            <p className="text-gray-600">{book.author}</p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {book.dueDate && `Due: ${new Date(book.dueDate).toLocaleDateString()}`}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+                              Borrowed
+                            </span>
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </>
               )}

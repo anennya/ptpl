@@ -85,10 +85,18 @@ interface TransformedMember {
 
 const rolePermissions: RolePermissions = {
   admin: {
-    can: ["read:*", "write:*", "delete:*"],
+    can: ["create:*", "read:*", "update:*", "delete:*"],
   },
   volunteer: {
-    can: ["read:*", "write:books", "write:members"],
+    can: [
+      "read:*",
+      "create:books",
+      "update:books",
+      "delete:books",
+      "create:members",
+      "update:members",
+      "delete:members",
+    ],
   },
   member: {
     can: ["read:books", "read:events"],
@@ -269,9 +277,8 @@ async function handleGetOrganization(
     if (members) {
       for (const member of members) {
         try {
-          const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(
-            member.user_id,
-          );
+          const { data: userData, error: userError } =
+            await supabaseAdmin.auth.admin.getUserById(member.user_id);
 
           // Include member even if user data fetch fails
           transformedMembers.push({
@@ -291,10 +298,16 @@ async function handleGetOrganization(
           });
 
           if (userError) {
-            console.warn(`Failed to fetch user data for ${member.user_id}:`, userError);
+            console.warn(
+              `Failed to fetch user data for ${member.user_id}:`,
+              userError,
+            );
           }
         } catch (error) {
-          console.warn(`Error fetching user data for ${member.user_id}:`, error);
+          console.warn(
+            `Error fetching user data for ${member.user_id}:`,
+            error,
+          );
           // Still include the member with minimal data
           transformedMembers.push({
             id: member.id,
@@ -791,57 +804,52 @@ async function handleCheckPermission(
   body: RequestBody,
   supabase: SupabaseClient,
 ): Promise<Response> {
-  const { organizationId, actionType, resource, permission } = body;
+  const { actionType, resource, permission } = body;
   const checkAction = actionType || permission;
 
-  if (!organizationId || !checkAction || !resource) {
+  if (!checkAction || !resource) {
     return new Response(JSON.stringify({ error: "Missing required fields" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const { data: authData, error: authError } = await supabase.auth.getUser();
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
 
-  if (authError || !authData?.user) {
-    return new Response(
-      JSON.stringify({ hasPermission: false, reason: "Not authenticated" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
+    if (authError || !authData?.user) {
+      return new Response(
+        JSON.stringify({ hasPermission: false, reason: "Not authenticated" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
-  // Get user's role in the organization
-  const { data: membership, error: membershipError } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", organizationId)
-    .eq("user_id", authData.user.id)
-    .maybeSingle();
+    const userOrg = await getCurrentUserOrganization(supabase);
 
-  if (membershipError || !membership) {
+    const role = userOrg.role as string;
+    const permissions = rolePermissions[role]?.can || [];
+
+    const hasPermission =
+      permissions.includes(`${checkAction}:*`) ||
+      permissions.includes(`${checkAction}:${resource}`);
+
+    return new Response(JSON.stringify({ hasPermission }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error in handleCheckPermission:", error);
     return new Response(
       JSON.stringify({
         hasPermission: false,
-        reason: "Not a member of this organization",
+        reason: error instanceof Error ? error.message : "Unknown error",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
   }
-
-  const role = membership.role as string;
-  const permissions = rolePermissions[role]?.can || [];
-
-  const hasPermission =
-    permissions.includes(`${checkAction}:*`) ||
-    permissions.includes(`${checkAction}:${resource}`);
-
-  return new Response(JSON.stringify({ hasPermission }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 }
 
 async function handleGetUserOrganizations(
