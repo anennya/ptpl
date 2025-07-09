@@ -5,8 +5,10 @@ import { Book, Member } from '../types';
 import { searchBooks, getBookById } from '../services/bookService';
 import { searchMembers, getMemberById } from '../services/memberService';
 import { borrowBook, returnBook, renewBook } from '../services/circulationService';
+import { useAuth } from '../contexts/useAuth';
 
 const Circulation: React.FC = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialBookId = searchParams.get('bookId');
   const initialMemberId = searchParams.get('memberId');
@@ -132,6 +134,11 @@ const Circulation: React.FC = () => {
   const handleConfirm = async () => {
     if (!selectedMember || !selectedBook) return;
     
+    if (!user) {
+      setError('User not authenticated');
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     
@@ -140,13 +147,13 @@ const Circulation: React.FC = () => {
       
       switch (action) {
         case 'borrow':
-          result = await borrowBook(selectedBook.id, selectedMember.id);
+          result = await borrowBook(selectedBook.id, selectedMember.id, user.id);
           break;
         case 'return':
-          result = await returnBook(selectedBook.id, selectedMember.id);
+          result = await returnBook(selectedBook.id, selectedMember.id, user.id);
           break;
         case 'renew':
-          result = await renewBook(selectedBook.id, selectedMember.id);
+          result = await renewBook(selectedBook.id, selectedMember.id, user.id);
           break;
       }
       

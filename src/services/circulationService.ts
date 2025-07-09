@@ -6,7 +6,8 @@ import { getMemberById, updateMember } from './memberService';
 // Borrow a book
 export const borrowBook = async (
   bookId: string,
-  memberId: string
+  memberId: string,
+  issuedById: string
 ): Promise<{ success: boolean; message: string; record?: BorrowRecord }> => {
   const book = await getBookById(bookId);
   const member = await getMemberById(memberId);
@@ -47,7 +48,8 @@ export const borrowBook = async (
         member_id: memberId,
         issued_on: borrowDate.toISOString(),
         due_on: dueDate.toISOString(),
-        is_renewed: false
+        is_renewed: false,
+        issued_by: issuedById
       })
       .select()
       .single();
@@ -97,7 +99,8 @@ export const borrowBook = async (
 // Return a book
 export const returnBook = async (
   bookId: string,
-  memberId: string
+  memberId: string,
+  returnedById?: string
 ): Promise<{ success: boolean; message: string; fine?: number }> => {
   const book = await getBookById(bookId);
   const member = await getMemberById(memberId);
@@ -193,7 +196,8 @@ export const returnBook = async (
 // Renew a book
 export const renewBook = async (
   bookId: string,
-  memberId: string
+  memberId: string,
+  renewedById?: string
 ): Promise<{ success: boolean; message: string; newDueDate?: Date }> => {
   const book = await getBookById(bookId);
   const member = await getMemberById(memberId);
