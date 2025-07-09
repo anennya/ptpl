@@ -40,6 +40,15 @@ export const borrowBook = async (
   dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
   
   try {
+    console.log('Creating loan with data:', {
+      book_id: bookId,
+      member_id: memberId,
+      issued_on: borrowDate.toISOString(),
+      due_on: dueDate.toISOString(),
+      is_renewed: false,
+      issued_by: issuedById
+    });
+
     // Create loan record
     const { data: loanData, error: loanError } = await supabase
       .from('loans')
@@ -56,7 +65,7 @@ export const borrowBook = async (
 
     if (loanError) {
       console.error('Error creating loan:', loanError);
-      return { success: false, message: 'Failed to create loan record' };
+      return { success: false, message: `Failed to create loan record: ${loanError.message}` };
     }
 
     // Update book status
@@ -92,7 +101,7 @@ export const borrowBook = async (
     };
   } catch (error) {
     console.error('Error in borrowBook:', error);
-    return { success: false, message: 'An error occurred while borrowing the book' };
+    return { success: false, message: `An error occurred while borrowing the book: ${error}` };
   }
 };
 
