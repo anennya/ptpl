@@ -22,37 +22,49 @@ const MemberDetail: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    if (id) {
-      const memberData = getMemberById(id);
-      
-      if (memberData) {
-        setMember(memberData);
-        setEditedMember({
-          name: memberData.name,
-          phone: memberData.phone,
-          apartmentNumber: memberData.apartmentNumber,
-        });
-        
-        // Get borrowed books details
-        const books: Book[] = [];
-        memberData.borrowedBooks.forEach(bookId => {
-          const book = getBookById(bookId);
-          if (book) {
-            books.push(book);
+    const loadMemberData = async () => {
+      if (id) {
+        try {
+          const memberData = await getMemberById(id);
+          
+          if (memberData) {
+            setMember(memberData);
+            setEditedMember({
+              name: memberData.name,
+              phone: memberData.phone,
+              apartmentNumber: memberData.apartmentNumber,
+            });
+            
+            // Get borrowed books details
+            const books: Book[] = [];
+            if (memberData.borrowedBooks && Array.isArray(memberData.borrowedBooks)) {
+              for (const bookId of memberData.borrowedBooks) {
+                const book = await getBookById(bookId);
+                if (book) {
+                  books.push(book);
+                }
+              }
+            }
+            setBorrowedBooks(books);
+            
+            // Get borrow history
+            const history = await getMemberBorrowHistory(id);
+            const historyWithBooks = await Promise.all(
+              history.map(async (record) => {
+                const book = await getBookById(record.bookId);
+                return { record, book: book! };
+              })
+            );
+            
+            setBorrowHistory(historyWithBooks.filter(item => item.book !== undefined));
           }
-        });
-        setBorrowedBooks(books);
-        
-        // Get borrow history
-        const history = getMemberBorrowHistory(id);
-        const historyWithBooks = history.map(record => {
-          const book = getBookById(record.bookId);
-          return { record, book: book! };
-        }).filter(item => item.book !== undefined);
-        
-        setBorrowHistory(historyWithBooks);
+        } catch (error) {
+          console.error('Error loading member data:', error);
+        }
       }
-    }
+    };
+    
+    loadMemberData();
   }, [id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
