@@ -8,7 +8,7 @@ export const borrowBook = async (
   memberId: string
 ): Promise<{ success: boolean; message: string; record?: BorrowRecord }> => {
   const book = await getBookById(bookId);
-  const member = getMemberById(memberId);
+  const member = await getMemberById(memberId);
   
   // Validate book and member
   if (!book) return { success: false, message: 'Book not found' };
@@ -83,7 +83,7 @@ export const returnBook = async (
   memberId: string
 ): Promise<{ success: boolean; message: string; fine?: number }> => {
   const book = await getBookById(bookId);
-  const member = getMemberById(memberId);
+  const member = await getMemberById(memberId);
   
   // Validate book and member
   if (!book) return { success: false, message: 'Book not found' };
@@ -167,7 +167,7 @@ export const renewBook = async (
   memberId: string
 ): Promise<{ success: boolean; message: string; newDueDate?: Date }> => {
   const book = await getBookById(bookId);
-  const member = getMemberById(memberId);
+  const member = await getMemberById(memberId);
   
   // Validate book and member
   if (!book) return { success: false, message: 'Book not found' };
