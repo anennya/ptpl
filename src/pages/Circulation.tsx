@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Search, BookOpen, Users, ArrowRight, RotateCcw, Check, X, ArrowLeft } from 'lucide-react';
 import { Book, Member } from '../types';
@@ -29,8 +29,9 @@ const Circulation: React.FC = () => {
 
   useEffect(() => {
     const initializeFromParams = async () => {
-      if (initialMemberId) {
-        try {
+      setIsLoading(true);
+      try {
+        if (initialMemberId) {
           const member = await getMemberById(initialMemberId);
           if (member) {
             setSelectedMember(member);
@@ -47,12 +48,7 @@ const Circulation: React.FC = () => {
               }
             }
           }
-        } catch (err) {
-          console.error('Error initializing from params:', err);
-          setError('Failed to load initial data');
-        }
-      } else if (initialBookId) {
-        try {
+        } else if (initialBookId) {
           const book = await getBookById(initialBookId);
           if (book) {
             setSelectedBook(book);
@@ -61,10 +57,12 @@ const Circulation: React.FC = () => {
             }
             setStep('member');
           }
-        } catch (err) {
-          console.error('Error loading book:', err);
-          setError('Failed to load book data');
         }
+      } catch (err) {
+        console.error('Error initializing from params:', err);
+        setError('Failed to load initial data');
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -196,6 +194,14 @@ const Circulation: React.FC = () => {
     setHasSearched(false);
   };
 
+  const handleChangeBook = () => {
+    setSelectedBook(null);
+    setStep('book');
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+
   const handleSwitchAction = (newAction: 'borrow' | 'return' | 'renew') => {
     setAction(newAction);
     setSearchQuery('');
@@ -288,30 +294,75 @@ const Circulation: React.FC = () => {
           {step === 'member' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Step 1: Select Member</h2>
+                <h2 className="text-2xl font-bold">
+                  {selectedBook 
+                    ? `Step 1: Select Member for: ${selectedBook.title}` 
+                    : 'Step 1: Select Member'
+                  }
+                </h2>
                 
-                <div className="flex space-x-3">
-                  <button 
-                    onClick={() => handleSwitchAction('borrow')}
-                    className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
-                    disabled={isLoading}
-                  >
-                    Borrow
-                  </button>
-                  <button 
-                    onClick={() => handleSwitchAction('return')}
-                    className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
-                    disabled={isLoading}
-                  >
-                    Return
-                  </button>
-                </div>
+                {!selectedBook && (
+                  <div className="flex space-x-3">
+                    <button 
+                      onClick={() => handleSwitchAction('borrow')}
+                      className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
+                      disabled={isLoading}
+                    >
+                      Borrow
+                    </button>
+                    <button 
+                      onClick={() => handleSwitchAction('return')}
+                      className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
+                      disabled={isLoading}
+                    >
+                      Return
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Pre-selected book display */}
+              {selectedBook && (
+                <div className="bg-primary-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <BookOpen className="h-6 w-6 mr-2 text-primary-600" />
+                      <div>
+                        <h3 className="text-lg font-bold">Selected Book:</h3>
+                        <p className="text-lg font-medium">{selectedBook.title}</p>
+                        <p className="text-gray-600">by {selectedBook.author}</p>
+                        <p className="text-sm text-gray-500">ISBN: {selectedBook.isbn}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
+                        selectedBook.status === 'Available' 
+                          ? 'bg-green-100 text-green-800' 
+                          : selectedBook.status === 'Borrowed' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedBook.status}
+                      </span>
+                      <button
+                        onClick={handleChangeBook}
+                        className="btn btn-secondary"
+                        disabled={isLoading}
+                      >
+                        Change Book
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <form onSubmit={handleSearch} className="relative">
                 <input
                   type="text"
-                  placeholder="Search member by name, phone, or apartment..."
+                  placeholder={selectedBook 
+                    ? "Search member for this book..." 
+                    : "Search member by name, phone, or apartment..."
+                  }
                   className="input-field pl-10 w-full"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -523,41 +574,6 @@ const Circulation: React.FC = () => {
                   <p className="text-xl">No books found with that search.</p>
                   <p className="mt-2">Try a different search term or <Link to="/books" className="text-primary-600 hover:text-primary-800">add a new book</Link>.</p>
                 </div>
-              )}
-              
-              {action === 'return' && !searchQuery && selectedMember && selectedMember.borrowedBooks.length > 0 && (
-                <>
-                  <h3 className="text-xl font-medium mt-4">Books to Return:</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {selectedMember.borrowedBooks.map(bookId => {
-                      const book = getBookById(bookId);
-                      if (!book) return null;
-                      
-                      return (
-                        <div 
-                          key={book.id}
-                          onClick={() => handleSelectBook(book)}
-                          className="card hover:bg-primary-50 cursor-pointer transition-colors duration-200"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="text-xl font-bold text-primary-900">{book.title}</h3>
-                              <p className="text-gray-600">{book.author}</p>
-                              <p className="text-sm text-gray-500 mt-1">
-                                {book.dueDate && `Due: ${new Date(book.dueDate).toLocaleDateString()}`}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
-                                Borrowed
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
               )}
             </div>
           )}
