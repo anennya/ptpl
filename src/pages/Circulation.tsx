@@ -145,13 +145,13 @@ const Circulation: React.FC = () => {
       
       switch (action) {
         case 'borrow':
-          result = await borrowBook(selectedBook.id, selectedMember.id, user.id);
+          result = await borrowBook(selectedBook.id, selectedMember.id);
           break;
         case 'return':
-          result = await returnBook(selectedBook.id, selectedMember.id, user.id);
+          result = await returnBook(selectedBook.id, selectedMember.id);
           break;
         case 'renew':
-          result = await renewBook(selectedBook.id, selectedMember.id, user.id);
+          result = await renewBook(selectedBook.id, selectedMember.id);
           break;
       }
       

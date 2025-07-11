@@ -7,7 +7,7 @@ import { getMemberById, updateMember } from './memberService';
 export const borrowBook = async (
   bookId: string,
   memberId: string,
-  issuedById: string
+  issuedById?: string
 ): Promise<{ success: boolean; message: string; record?: BorrowRecord }> => {
   const book = await getBookById(bookId);
   const member = await getMemberById(memberId);
@@ -45,11 +45,10 @@ export const borrowBook = async (
       member_id: memberId,
       issued_on: borrowDate.toISOString(),
       due_on: dueDate.toISOString(),
-      is_renewed: false,
-      issued_by: issuedById
+      is_renewed: false
     });
 
-    // Create loan record
+    // Create loan record (without issued_by for now since we don't have volunteer system set up)
     const { data: loanData, error: loanError } = await supabase
       .from('loans')
       .insert({
@@ -57,8 +56,8 @@ export const borrowBook = async (
         member_id: memberId,
         issued_on: borrowDate.toISOString(),
         due_on: dueDate.toISOString(),
-        is_renewed: false,
-        issued_by: issuedById
+        is_renewed: false
+        // Note: issued_by is optional and references volunteers table which isn't fully implemented
       })
       .select()
       .single();
