@@ -41,6 +41,8 @@ export const borrowBook = async (
       issued_on: borrowDate.toISOString(),
       due_on: dueDate.toISOString(),
       is_renewed: false
+    }
+    )
 
     // Create loan record (without issued_by for now to avoid foreign key issues)
     const loanInsertData: any = {
