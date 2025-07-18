@@ -11,6 +11,11 @@ export const borrowBook = async (
 ): Promise<{ success: boolean; message: string; record?: BorrowRecord }> => {
   const book = await getBookById(bookId);
   const member = await getMemberById(memberId);
+  
+  // Validate book and member
+  if (!book) return { success: false, message: 'Book not found' };
+  if (!member) return { success: false, message: 'Member not found' };
+  
   // Check if book is available
   if (book.status !== 'Available') {
     return { success: false, message: 'Book is not available for borrowing' };
@@ -41,26 +46,19 @@ export const borrowBook = async (
       issued_on: borrowDate.toISOString(),
       due_on: dueDate.toISOString(),
       is_renewed: false
-    }
-    )
+    });
 
-    // Create loan record (without issued_by for now to avoid foreign key issues)
-    const loanInsertData: any = {
-      book_id: bookId,
-      member_id: memberId,
-      issued_on: borrowDate.toISOString(),
-      due_on: dueDate.toISOString(),
-      is_renewed: false
-    };
-    
-    // Only add issued_by if we have a valid user ID
-    if (issuedById) {
-      loanInsertData.issued_by = issuedById;
-    }
-
+    // Create loan record (without issued_by for now since we don't have volunteer system set up)
     const { data: loanData, error: loanError } = await supabase
       .from('loans')
-      .insert(loanInsertData)
+      .insert({
+        book_id: bookId,
+        member_id: memberId,
+        issued_on: borrowDate.toISOString(),
+        due_on: dueDate.toISOString(),
+        is_renewed: false
+        // Note: issued_by is optional and references volunteers table which isn't fully implemented
+      })
       .select()
       .single();
 
