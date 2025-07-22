@@ -10,13 +10,11 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import AuthConfirm from "./pages/AuthConfirm";
-import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import MemberDetail from "./pages/MemberDetail";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
 import Circulation from "./pages/Circulation";
-import Reports from "./pages/Reports";
 import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
@@ -31,7 +29,6 @@ function App() {
 
           <Route element={<MainLayout />}>
             <Route index element={<Home />} />
-            <Route path="dashboard" element={<Dashboard />} />
 
             <Route element={<ProtectedRoute resource="books" action="view" />}>
               <Route path="/books" element={<Books />} />
@@ -53,11 +50,7 @@ function App() {
               <Route path="/circulation" element={<Circulation />} />
             </Route>
 
-            <Route
-              element={<ProtectedRoute resource="reports" action="view" />}
-            >
-              <Route path="/reports" element={<Reports />} />
-            </Route>
+
 
             <Route
               element={<ProtectedRoute resource="members" action="create" />}
