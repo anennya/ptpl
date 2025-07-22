@@ -5,9 +5,7 @@ import {
   Users,
   RotateCcw,
   Home,
-  BarChart3,
   X,
-  LayoutDashboard,
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../../contexts/useAuth";
@@ -65,10 +63,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <Home className="w-6 h-6 mr-3" />
             Home
           </NavLink>
-          <NavLink to="/dashboard" className={navLinkClass}>
-            <LayoutDashboard className="w-6 h-6 mr-3" />
-            Dashboard
-          </NavLink>
           <PermissionGate resource="members" action="view">
             <NavLink to="/members" className={navLinkClass}>
               <Users className="w-6 h-6 mr-3" />
@@ -85,12 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               Circulation
             </NavLink>
           </PermissionGate>
-          <PermissionGate resource="reports" action="view">
-            <NavLink to="/reports" className={navLinkClass}>
-              <BarChart3 className="w-6 h-6 mr-3" />
-              Reports
-            </NavLink>
-          </PermissionGate>
+
           <PermissionGate resource="members" action="create">
             <NavLink to="/admin" className={navLinkClass}>
               <UserCog className="w-6 h-6 mr-3" />
