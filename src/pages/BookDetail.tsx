@@ -35,8 +35,8 @@ const BookDetail: React.FC = () => {
             });
             
             // Get borrower details if book is borrowed
-            if (bookData.status === 'Borrowed' && bookData.borrowedBy) {
-              const memberData = await getMemberById(bookData.borrowedBy);
+            if (bookData.status === 'Borrowed' && bookData.borrowedByMemberId) {
+              const memberData = await getMemberById(bookData.borrowedByMemberId);
               if (memberData) {
                 setBorrower(memberData);
               }
@@ -261,7 +261,7 @@ const BookDetail: React.FC = () => {
               
               {book.status === 'Borrowed' && (
                 <Link 
-                  to={`/circulation?bookId=${book.id}&memberId=${book.borrowedBy}`}
+                  to={`/circulation?bookId=${book.id}&memberId=${book.borrowedByMemberId}`}
                   className="btn btn-primary"
                 >
                   Return/Renew This Book

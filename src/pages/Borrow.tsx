@@ -1,24 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Search, BookOpen, Users, ArrowRight, RotateCcw, Check, X, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, BookOpen, Users, ArrowRight, Check, X, ArrowLeft } from 'lucide-react';
 import { Book, Member } from '../types';
 import { searchBooks, getBookById } from '../services/bookService';
 import { searchMembers, getMemberById } from '../services/memberService';
-import { borrowBook, returnBook, renewBook } from '../services/circulationService';
+import { borrowBook } from '../services/circulationService';
 import { useAuth } from '../contexts/useAuth';
 
-const Circulation: React.FC = () => {
+const Borrow: React.FC = () => {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const initialBookId = searchParams.get('bookId');
-  const initialMemberId = searchParams.get('memberId');
   
   const [step, setStep] = useState<'member' | 'book' | 'confirm'>('member');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Member[] | Book[]>([]);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [action, setAction] = useState<'borrow' | 'return' | 'renew'>('borrow');
   const [resultMessage, setResultMessage] = useState<{
     success: boolean;
     message: string;
@@ -26,49 +21,6 @@ const Circulation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-
-  useEffect(() => {
-    const initializeFromParams = async () => {
-      setIsLoading(true);
-      try {
-        if (initialMemberId) {
-          const member = await getMemberById(initialMemberId);
-          if (member) {
-            setSelectedMember(member);
-            setStep('book');
-            
-            if (initialBookId) {
-              const book = await getBookById(initialBookId);
-              if (book) {
-                setSelectedBook(book);
-                // Fix: Compare with member's phone number, not ID
-                if (book.status === 'Borrowed' && book.borrowedByMemberId === initialMemberId) {
-                  setAction('return');
-                }
-                setStep('confirm');
-              }
-            }
-          }
-        } else if (initialBookId) {
-          const book = await getBookById(initialBookId);
-          if (book) {
-            setSelectedBook(book);
-            if (book.status === 'Borrowed') {
-              setAction('return');
-            }
-            setStep('member');
-          }
-        }
-      } catch (err) {
-        console.error('Error initializing from params:', err);
-        setError('Failed to load initial data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    initializeFromParams();
-  }, [initialBookId, initialMemberId]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,16 +36,10 @@ const Circulation: React.FC = () => {
         const members = await searchMembers(searchQuery);
         setSearchResults(members);
       } else if (step === 'book') {
-        let books = await searchBooks(searchQuery);
-        
-        if (action === 'return' && selectedMember) {
-          books = books.filter(book => 
-            book.status === 'Borrowed' && 
-            book.borrowedByMemberId === selectedMember.id
-          );
-        }
-        
-        setSearchResults(books);
+        const books = await searchBooks(searchQuery);
+        // Only show available books for borrowing
+        const availableBooks = books.filter(book => book.status === 'Available');
+        setSearchResults(availableBooks);
       }
     } catch (err) {
       console.error('Error searching:', err);
@@ -109,25 +55,11 @@ const Circulation: React.FC = () => {
     setSearchQuery('');
     setSearchResults([]);
     setHasSearched(false);
-    
-    if (member.borrowedBooks.length > 0) {
-      setAction('return');
-    } else {
-      setAction('borrow');
-    }
   };
 
   const handleSelectBook = (book: Book) => {
     setSelectedBook(book);
     setStep('confirm');
-    
-    if (book.status === 'Borrowed') {
-      if (selectedMember && book.borrowedByMemberId === selectedMember.id) {
-        setAction('return');
-      }
-    } else {
-      setAction('borrow');
-    }
   };
 
   const handleConfirm = async () => {
@@ -142,19 +74,7 @@ const Circulation: React.FC = () => {
     setError(null);
     
     try {
-      let result;
-      
-      switch (action) {
-        case 'borrow':
-          result = await borrowBook(selectedBook.id, selectedMember.id);
-          break;
-        case 'return':
-          result = await returnBook(selectedBook.id, selectedMember.id);
-          break;
-        case 'renew':
-          result = await renewBook(selectedBook.id, selectedMember.id);
-          break;
-      }
+      const result = await borrowBook(selectedBook.id, selectedMember.id);
       
       setResultMessage({
         success: result.success,
@@ -195,27 +115,12 @@ const Circulation: React.FC = () => {
     setHasSearched(false);
   };
 
-  const handleChangeBook = () => {
-    setSelectedBook(null);
-    setStep('book');
-    setSearchQuery('');
-    setSearchResults([]);
-    setHasSearched(false);
-  };
-
-  const handleSwitchAction = (newAction: 'borrow' | 'return' | 'renew') => {
-    setAction(newAction);
-    setSearchQuery('');
-    setSearchResults([]);
-    setHasSearched(false);
-  };
-
   return (
     <div className="fade-in">
       <div className="flex flex-col space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Circulation</h1>
-          <p className="text-lg text-gray-600">Manage book borrowing, returns, and renewals.</p>
+          <h1 className="text-3xl font-bold mb-2">Borrow Books</h1>
+          <p className="text-lg text-gray-600">Issue books to library members.</p>
         </div>
         
         {/* Step indicators */}
@@ -294,76 +199,12 @@ const Circulation: React.FC = () => {
         <div className="card">
           {step === 'member' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">
-                  {selectedBook 
-                    ? `Step 1: Select Member for: ${selectedBook.title}` 
-                    : 'Step 1: Select Member'
-                  }
-                </h2>
-                
-                {!selectedBook && (
-                  <div className="flex space-x-3">
-                    <button 
-                      onClick={() => handleSwitchAction('borrow')}
-                      className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
-                      disabled={isLoading}
-                    >
-                      Borrow
-                    </button>
-                    <button 
-                      onClick={() => handleSwitchAction('return')}
-                      className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
-                      disabled={isLoading}
-                    >
-                      Return
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Pre-selected book display */}
-              {selectedBook && (
-                <div className="bg-primary-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <BookOpen className="h-6 w-6 mr-2 text-primary-600" />
-                      <div>
-                        <h3 className="text-lg font-bold">Selected Book:</h3>
-                        <p className="text-lg font-medium">{selectedBook.title}</p>
-                        <p className="text-gray-600">by {selectedBook.author}</p>
-                        <p className="text-sm text-gray-500">ISBN: {selectedBook.isbn}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
-                        selectedBook.status === 'Available' 
-                          ? 'bg-green-100 text-green-800' 
-                          : selectedBook.status === 'Borrowed' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {selectedBook.status}
-                      </span>
-                      <button
-                        onClick={handleChangeBook}
-                        className="btn btn-secondary"
-                        disabled={isLoading}
-                      >
-                        Change Book
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <h2 className="text-2xl font-bold">Step 1: Select Member</h2>
               
               <form onSubmit={handleSearch} className="relative">
                 <input
                   type="text"
-                  placeholder={selectedBook 
-                    ? "Search member for this book..." 
-                    : "Search member by name, phone, or apartment..."
-                  }
+                  placeholder="Search member by name, phone, or apartment..."
                   className="input-field pl-10 w-full"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -413,7 +254,7 @@ const Circulation: React.FC = () => {
                 <div className="text-center py-10 text-gray-500">
                   <Users className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <p className="text-xl">No members found with that search.</p>
-                  <p className="mt-2">Try a different search term or <Link to="/members" className="text-primary-600 hover:text-primary-800">add a new member</Link>.</p>
+                  <p className="mt-2">Try a different search term or add a new member.</p>
                 </div>
               )}
             </div>
@@ -423,27 +264,6 @@ const Circulation: React.FC = () => {
             <div className="space-y-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
                 <h2 className="text-2xl font-bold">Step 2: Select Book</h2>
-                
-                <div className="flex space-x-3">
-                  {selectedMember && selectedMember.borrowedBooks.length > 0 && (
-                    <>
-                      <button 
-                        onClick={() => handleSwitchAction('borrow')}
-                        className={`btn ${action === 'borrow' ? 'btn-primary' : 'btn-secondary'}`}
-                        disabled={selectedMember.borrowedBooks.length >= 2 || isLoading}
-                      >
-                        Borrow
-                      </button>
-                      <button 
-                        onClick={() => handleSwitchAction('return')}
-                        className={`btn ${action === 'return' ? 'btn-primary' : 'btn-secondary'}`}
-                        disabled={isLoading}
-                      >
-                        Return
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
               
               <div className="bg-primary-50 p-4 rounded-lg">
@@ -471,9 +291,7 @@ const Circulation: React.FC = () => {
               <form onSubmit={handleSearch} className="relative">
                 <input
                   type="text"
-                  placeholder={action === 'return' 
-                    ? "Search book to return..." 
-                    : "Search book by title, author, or ISBN..."}
+                  placeholder="Search book by title, author, or ISBN..."
                   className="input-field pl-10 w-full"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -489,21 +307,7 @@ const Circulation: React.FC = () => {
                 </button>
               </form>
               
-              {action === 'return' && selectedMember && selectedMember.borrowedBooks.length === 0 && (
-                <div className="text-center py-10 text-gray-500">
-                  <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                  <p className="text-xl">This member has no books to return.</p>
-                  <button
-                    onClick={() => handleSwitchAction('borrow')}
-                    className="btn btn-primary mt-4"
-                    disabled={isLoading}
-                  >
-                    Borrow a Book Instead
-                  </button>
-                </div>
-              )}
-              
-              {action === 'borrow' && selectedMember && selectedMember.borrowedBooks.length >= 2 && (
+              {selectedMember && selectedMember.borrowedBooks.length >= 2 && (
                 <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
                   <p className="font-medium">
                     This member has already borrowed the maximum of 2 books.
@@ -511,35 +315,11 @@ const Circulation: React.FC = () => {
                   <p className="mt-1">
                     Please return a book before borrowing another one.
                   </p>
-                  <button
-                    onClick={() => handleSwitchAction('return')}
-                    className="btn btn-accent mt-3"
-                    disabled={isLoading}
-                  >
-                    Return a Book First
-                  </button>
-                </div>
-              )}
-              
-              {action === 'borrow' && selectedMember && selectedMember.fines > 0 && (
-                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-                  <p className="font-medium">
-                    This member has unpaid fines of ₹{selectedMember.fines}.
-                  </p>
-                  <p className="mt-1">
-                    Please clear the fines before borrowing.
-                  </p>
-                  <Link
-                    to={`/members/${selectedMember.id}`}
-                    className="btn btn-accent mt-3"
-                  >
-                    View Member Details
-                  </Link>
                 </div>
               )}
               
               {searchResults.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {(searchResults as Book[]).map(book => (
                     <div 
                       key={book.id}
@@ -553,14 +333,8 @@ const Circulation: React.FC = () => {
                           <p className="text-sm text-gray-500 mt-1">ISBN: {book.isbn}</p>
                         </div>
                         <div>
-                          <span className={`px-3 py-1 text-sm font-semibold rounded-full 
-                            ${book.status === 'Available' 
-                              ? 'bg-green-100 text-green-800' 
-                              : book.status === 'Borrowed' 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-gray-100 text-gray-800'}`}
-                          >
-                            {book.status}
+                          <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                            Available
                           </span>
                         </div>
                       </div>
@@ -572,8 +346,8 @@ const Circulation: React.FC = () => {
               {hasSearched && searchQuery && searchResults.length === 0 && !isLoading && (
                 <div className="text-center py-10 text-gray-500">
                   <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                  <p className="text-xl">No books found with that search.</p>
-                  <p className="mt-2">Try a different search term or <Link to="/books" className="text-primary-600 hover:text-primary-800">add a new book</Link>.</p>
+                  <p className="text-xl">No available books found with that search.</p>
+                  <p className="mt-2">Try a different search term or add a new book.</p>
                 </div>
               )}
             </div>
@@ -581,7 +355,7 @@ const Circulation: React.FC = () => {
           
           {step === 'confirm' && selectedMember && selectedBook && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold">Step 3: Confirm {action.charAt(0).toUpperCase() + action.slice(1)}</h2>
+              <h2 className="text-2xl font-bold">Step 3: Confirm Borrow</h2>
               
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
                 <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
@@ -602,22 +376,9 @@ const Circulation: React.FC = () => {
                     Change Book
                   </button>
                 </div>
-                
-                {selectedBook.status === 'Borrowed' && selectedBook.borrowedByMemberId === selectedMember.id && (
-                  <div className="mt-3 md:mt-0">
-                    <button
-                      onClick={() => setAction(action === 'renew' ? 'return' : 'renew')}
-                      className={`btn ${action === 'renew' ? 'btn-primary' : 'btn-secondary'}`}
-                      disabled={isLoading}
-                    >
-                      <RotateCcw className="h-5 w-5 mr-2" />
-                      {action === 'renew' ? 'Confirming Renew' : 'Renew Instead'}
-                    </button>
-                  </div>
-                )}
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="card">
                   <div className="flex items-center mb-3">
                     <Users className="h-6 w-6 mr-2 text-primary-600" />
@@ -627,13 +388,18 @@ const Circulation: React.FC = () => {
                     <p className="text-xl font-medium">{selectedMember.name}</p>
                     <p><span className="text-gray-600">Phone:</span> {selectedMember.phone}</p>
                     <p><span className="text-gray-600">Apartment:</span> {selectedMember.apartmentNumber}</p>
-                    <p><span className="text-gray-600">Books Borrowed:</span> {selectedMember.borrowedBooks.length}/2</p>
                     <p>
-                      <span className="text-gray-600">Fines:</span> 
-                      {selectedMember.fines > 0 
-                        ? <span className="text-accent-600 font-medium"> ₹{selectedMember.fines}</span> 
-                        : <span className="text-green-600"> None</span>}
+                      <span className="text-gray-600">Books Borrowed:</span> 
+                      <span className="ml-1 px-2 py-0.5 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
+                        {selectedMember.borrowedBooks.length}/2
+                      </span>
                     </p>
+                    {selectedMember.fines > 0 && (
+                      <p>
+                        <span className="text-gray-600">Fines:</span> 
+                        <span className="ml-1 text-accent-600 font-medium">₹{selectedMember.fines}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -649,31 +415,16 @@ const Circulation: React.FC = () => {
                     <p><span className="text-gray-600">Category:</span> {selectedBook.category}</p>
                     <p>
                       <span className="text-gray-600">Status:</span> 
-                      <span className={`ml-1 px-2 py-0.5 text-sm font-semibold rounded-full 
-                        ${selectedBook.status === 'Available' 
-                          ? 'bg-green-100 text-green-800' 
-                          : selectedBook.status === 'Borrowed' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'}`}
-                      >
-                        {selectedBook.status}
+                      <span className="ml-1 px-2 py-0.5 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                        Available
                       </span>
                     </p>
-                    {selectedBook.dueDate && (
-                      <p>
-                        <span className="text-gray-600">Due Date:</span> 
-                        <span className={new Date(selectedBook.dueDate) < new Date() ? 'text-accent-600 font-medium' : ''}>
-                          {' '}{new Date(selectedBook.dueDate).toLocaleDateString()}
-                          {new Date(selectedBook.dueDate) < new Date() && ' (Overdue)'}
-                        </span>
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
               
               {/* Warning messages */}
-              {action === 'borrow' && selectedMember.fines > 0 && (
+              {selectedMember.fines > 0 && (
                 <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
                   <p className="font-medium">
                     Warning: This member has unpaid fines of ₹{selectedMember.fines}.
@@ -684,7 +435,7 @@ const Circulation: React.FC = () => {
                 </div>
               )}
               
-              {action === 'borrow' && selectedMember.borrowedBooks.length >= 2 && (
+              {selectedMember.borrowedBooks.length >= 2 && (
                 <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
                   <p className="font-medium">
                     This member has already borrowed the maximum of 2 books.
@@ -695,31 +446,19 @@ const Circulation: React.FC = () => {
                 </div>
               )}
               
-              {action === 'return' && selectedBook.dueDate && new Date(selectedBook.dueDate) < new Date() && (
-                <div className="bg-accent-50 border border-accent-200 text-accent-700 px-4 py-3 rounded-lg">
-                  <p className="font-medium">
-                    This book is overdue. A fine will be calculated on return.
-                  </p>
-                  <p className="mt-1">
-                    The fine is ₹5 per day overdue.
-                  </p>
-                </div>
-              )}
-              
               <div className="flex justify-end mt-6">
                 <button
                   onClick={handleConfirm}
                   disabled={
                     isLoading ||
-                    (action === 'borrow' && selectedMember.borrowedBooks.length >= 2) || 
-                    (action === 'return' && selectedBook.borrowedByMemberId !== selectedMember.id)
+                    selectedMember.borrowedBooks.length >= 2
                   }
                   className="btn btn-primary flex items-center"
                 >
                   <span>
                     {isLoading 
-                      ? `${action.charAt(0).toUpperCase() + action.slice(1)}ing...` 
-                      : `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`}
+                      ? 'Borrowing...' 
+                      : 'Confirm Borrow'}
                   </span>
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </button>
@@ -732,4 +471,4 @@ const Circulation: React.FC = () => {
   );
 };
 
-export default Circulation;
+export default Borrow; 

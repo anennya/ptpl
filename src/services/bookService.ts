@@ -5,14 +5,26 @@ import { Book } from "../types";
 // Database interfaces
 interface BookRow {
   id: string;
-  title: string;
-  author: string;
-  isbn: string;
-  category: string;
-  available_quantity: number;
-  currently_issued_to: string | null;
+  title: string | null;
+  author: string | null;
+  category: string | null;
+  isbn: string | null;
+  book_number: string | null;
+  language: string | null;
+  price: string | null;
+  publisher: string | null;
+  available_quantity: string | null;
+  currently_issued_to_mobile: string | null; // Phone number
+  currently_issued_to_flat_number: string | null;
+  book_added_by_name: string | null;
+  book_added_by_id: string | null;
+  book_donated_by: string | null;
+  storage_location: string | null;
   cover_image_url: string | null;
-  is_deleted: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  is_deleted: boolean | null;
+  currently_issued_to: string | null; // Member ID (UUID)
 }
 
 interface LoanRow {
@@ -30,7 +42,7 @@ const nullToUndefined = (value: string | null): string | undefined => {
   return value === null ? undefined : value;
 };
 
-// Get all books
+// Get all books with due dates
 export const getAllBooks = async (): Promise<Book[]> => {
   console.log("Fetching all books from Supabase...");
   const { data, error } = await supabase
@@ -46,14 +58,27 @@ export const getAllBooks = async (): Promise<Book[]> => {
 
   console.log("Raw books data from Supabase:", data);
 
+  // Get all active loans for due dates
+  const { data: loans } = await supabase
+    .from("loans")
+    .select("book_id, due_on")
+    .is("returned_on", null);
+
+  const loansMap = new Map();
+  loans?.forEach(loan => {
+    loansMap.set(loan.book_id, new Date(loan.due_on));
+  });
+
   const transformedBooks: Book[] = data.map((book) => ({
     id: book.id,
     title: book.title || "",
     author: book.author || "",
     isbn: book.isbn || "",
     category: book.category || "Fiction",
-    status: (book.available_quantity > 0 ? "Available" : "Borrowed") as Book['status'],
-    borrowedBy: nullToUndefined(book.currently_issued_to),
+    status: (parseInt(book.available_quantity || "0") > 0 ? "Available" : "Borrowed") as Book['status'],
+    borrowedBy: nullToUndefined(book.currently_issued_to_mobile), // Phone number
+    borrowedByMemberId: nullToUndefined(book.currently_issued_to), // Member ID (UUID)
+    dueDate: loansMap.get(book.id),
     borrowCount: 0,
     coverUrl: nullToUndefined(book.cover_image_url),
   }));
@@ -62,7 +87,7 @@ export const getAllBooks = async (): Promise<Book[]> => {
   return transformedBooks;
 };
 
-// Get book by ID
+// Get book by ID with due date from loans table
 export const getBookById = async (id: string): Promise<Book | null> => {
   const { data, error } = await supabase
     .from("books")
@@ -75,20 +100,38 @@ export const getBookById = async (id: string): Promise<Book | null> => {
     return null;
   }
 
+  // Get due date from loans table if book is borrowed
+  let dueDate: Date | undefined;
+  if (parseInt(data.available_quantity || "0") === 0 && data.currently_issued_to) {
+    const { data: loanData } = await supabase
+      .from("loans")
+      .select("due_on")
+      .eq("book_id", id)
+      .eq("member_id", data.currently_issued_to)
+      .is("returned_on", null)
+      .single();
+    
+    if (loanData) {
+      dueDate = new Date(loanData.due_on);
+    }
+  }
+
   return {
     id: data.id,
     title: data.title || "",
     author: data.author || "",
     isbn: data.isbn || "",
     category: data.category || "Fiction",
-    status: (data.available_quantity > 0 ? "Available" : "Borrowed") as Book['status'],
-    borrowedBy: nullToUndefined(data.currently_issued_to),
+    status: (parseInt(data.available_quantity || "0") > 0 ? "Available" : "Borrowed") as Book['status'],
+    borrowedBy: nullToUndefined(data.currently_issued_to_mobile), // Phone number
+    borrowedByMemberId: nullToUndefined(data.currently_issued_to), // Member ID (UUID)
+    dueDate: dueDate,
     borrowCount: 0,
     coverUrl: nullToUndefined(data.cover_image_url),
   };
 };
 
-// Search books
+// Search books with due dates
 export const searchBooks = async (query: string): Promise<Book[]> => {
   const { data, error } = await supabase
     .from("books")
@@ -102,14 +145,27 @@ export const searchBooks = async (query: string): Promise<Book[]> => {
     throw error;
   }
 
+  // Get all active loans for due dates
+  const { data: loans } = await supabase
+    .from("loans")
+    .select("book_id, due_on")
+    .is("returned_on", null);
+
+  const loansMap = new Map();
+  loans?.forEach(loan => {
+    loansMap.set(loan.book_id, new Date(loan.due_on));
+  });
+
   return data.map((book): Book => ({
     id: book.id,
     title: book.title || "",
     author: book.author || "",
     isbn: book.isbn || "",
     category: book.category || "Fiction",
-    status: (book.available_quantity > 0 ? "Available" : "Borrowed") as Book['status'],
-    borrowedBy: nullToUndefined(book.currently_issued_to),
+    status: (parseInt(book.available_quantity || "0") > 0 ? "Available" : "Borrowed") as Book['status'],
+    borrowedBy: nullToUndefined(book.currently_issued_to_mobile), // Phone number
+    borrowedByMemberId: nullToUndefined(book.currently_issued_to), // Member ID (UUID)
+    dueDate: loansMap.get(book.id),
     borrowCount: 0,
     coverUrl: nullToUndefined(book.cover_image_url),
   }));
@@ -192,8 +248,9 @@ export const updateBook = async (updatedBook: Book): Promise<Book | null> => {
     author: data.author || "",
     isbn: data.isbn || "",
     category: data.category || "Fiction",
-    status: (data.available_quantity > 0 ? "Available" : "Borrowed") as Book['status'],
-    borrowedBy: nullToUndefined(data.currently_issued_to),
+    status: (parseInt(data.available_quantity || "0") > 0 ? "Available" : "Borrowed") as Book['status'],
+    borrowedBy: nullToUndefined(data.currently_issued_to_mobile), // Phone number
+    borrowedByMemberId: nullToUndefined(data.currently_issued_to), // Member ID (UUID)
     borrowCount: 0,
     coverUrl: nullToUndefined(data.cover_image_url),
   };
@@ -243,8 +300,9 @@ export const getBooksByCategory = async (
     author: book.author || "",
     isbn: book.isbn || "",
     category: book.category || "Fiction",
-    status: (book.available_quantity > 0 ? "Available" : "Borrowed") as Book['status'],
-    borrowedBy: nullToUndefined(book.currently_issued_to),
+    status: (parseInt(book.available_quantity || "0") > 0 ? "Available" : "Borrowed") as Book['status'],
+    borrowedBy: nullToUndefined(book.currently_issued_to_mobile), // Phone number
+    borrowedByMemberId: nullToUndefined(book.currently_issued_to), // Member ID (UUID)
     borrowCount: 0,
     coverUrl: nullToUndefined(book.cover_image_url),
   }));
@@ -307,7 +365,8 @@ export const getOverdueBooks = async (): Promise<Book[]> => {
     isbn: loan.book.isbn || "",
     category: loan.book.category || "Fiction",
     status: "Borrowed" as Book['status'],
-    borrowedBy: nullToUndefined(loan.book.currently_issued_to),
+    borrowedBy: nullToUndefined(loan.book.currently_issued_to_mobile), // Phone number
+    borrowedByMemberId: nullToUndefined(loan.book.currently_issued_to), // Member ID (UUID)
     dueDate: new Date(loan.due_on),
     borrowCount: 0,
     coverUrl: nullToUndefined(loan.book.cover_image_url),
@@ -367,7 +426,8 @@ export const getMostPopularBooks = async (
         isbn: String(bookObj.isbn || ''),
         category: String(bookObj.category || 'Fiction'),
         status: (Number(bookObj.available_quantity || 0) > 0 ? "Available" : "Borrowed") as Book['status'],
-        borrowedBy: nullToUndefined(bookObj.currently_issued_to as string | null),
+        borrowedBy: nullToUndefined(bookObj.currently_issued_to_mobile as string | null), // Phone number
+        borrowedByMemberId: nullToUndefined(bookObj.currently_issued_to as string | null), // Member ID (UUID)
         borrowCount: bookCounts[String(bookObj.id || '')] || 0,
         coverUrl: nullToUndefined(bookObj.cover_image_url as string | null),
       };
@@ -376,4 +436,32 @@ export const getMostPopularBooks = async (
     .slice(0, limit);
 
   return uniqueBooks;
+};
+
+// Add this function to the book service
+export const getBookBorrowHistory = async (bookId: string): Promise<BorrowRecord[]> => {
+  const { data, error } = await supabase
+    .from('loans')
+    .select(`
+      *,
+      member:member_id (*)
+    `)
+    .eq('book_id', bookId)
+    .order('issued_on', { ascending: false });
+    
+  if (error) {
+    console.error('Error fetching book borrow history:', error);
+    throw error;
+  }
+  
+  return data.map(loan => ({
+    id: loan.id,
+    bookId: loan.book_id,
+    memberId: loan.member_id,
+    borrowDate: new Date(loan.issued_on),
+    dueDate: new Date(loan.due_on),
+    returnDate: loan.returned_on ? new Date(loan.returned_on) : undefined,
+    renewed: loan.is_renewed || false,
+    fine: loan.fine_amount
+  }));
 };

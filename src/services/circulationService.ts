@@ -73,8 +73,9 @@ export const borrowBook = async (
     const { error: bookError } = await supabase
       .from('books')
       .update({
-        available_quantity: 0,
-        currently_issued_to: member.phone // Using phone as identifier
+        available_quantity: "0",
+        currently_issued_to_mobile: member.phone, // Phone number
+        currently_issued_to: memberId // Member ID (UUID)
       })
       .eq('id', bookId);
 
@@ -115,17 +116,12 @@ export const returnBook = async (
   const book = await getBookById(bookId);
   const member = await getMemberById(memberId);
   
-  // Validate book and member
+  // Validate book and member exist
   if (!book) return { success: false, message: 'Book not found' };
   if (!member) return { success: false, message: 'Member not found' };
   
-  // Check if book is borrowed by this member
-  if (book.status !== 'Borrowed' || book.borrowedBy !== memberId) {
-    return { success: false, message: 'This book is not borrowed by this member' };
-  }
-  
   try {
-    // Get the active loan record
+    // Check if there's an active loan for this book and member
     const { data: loanData, error: loanError } = await supabase
       .from('loans')
       .select('*')
@@ -135,7 +131,7 @@ export const returnBook = async (
       .single();
 
     if (loanError || !loanData) {
-      return { success: false, message: 'Loan record not found' };
+      return { success: false, message: 'This book is not borrowed by this member' };
     }
 
     // Calculate fine if book is overdue (5 rupees per day)
@@ -161,11 +157,12 @@ export const returnBook = async (
       return { success: false, message: 'Failed to update loan record' };
     }
 
-    // Update book status
+    // Update book status - also update the currently_issued_to columns for consistency
     const { error: bookError } = await supabase
       .from('books')
       .update({
-        available_quantity: 1,
+        available_quantity: "1",
+        currently_issued_to_mobile: null,
         currently_issued_to: null
       })
       .eq('id', bookId);
@@ -217,7 +214,7 @@ export const renewBook = async (
   if (!member) return { success: false, message: 'Member not found' };
   
   // Check if book is borrowed by this member
-  if (book.status !== 'Borrowed' || book.borrowedBy !== memberId) {
+  if (book.status !== 'Borrowed' || book.borrowedByMemberId !== memberId) {
     return { success: false, message: 'This book is not borrowed by this member' };
   }
   

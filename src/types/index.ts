@@ -17,7 +17,8 @@ export interface Book {
   isbn: string;
   category: string; // Changed from enum to string to match database
   status: 'Available' | 'Borrowed' | 'Reserved' | 'Lost';
-  borrowedBy?: string;
+  borrowedBy?: string; // Phone number (for backward compatibility)
+  borrowedByMemberId?: string; // Member ID (UUID) - new field
   dueDate?: Date;
   borrowCount: number;
   coverUrl?: string;

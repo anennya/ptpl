@@ -10,6 +10,12 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import AuthConfirm from "./pages/AuthConfirm";
+import Borrow from "./pages/Borrow";
+import Return from "./pages/Return";
+import ManageMembers from "./pages/ManageMembers";
+import ManageMemberDetail from "./pages/ManageMemberDetail";
+import ManageBooks from "./pages/ManageBooks";
+import ManageBookDetail from "./pages/ManageBookDetail";
 import Members from "./pages/Members";
 import MemberDetail from "./pages/MemberDetail";
 import Books from "./pages/Books";
@@ -30,11 +36,28 @@ function App() {
           <Route element={<MainLayout />}>
             <Route index element={<Home />} />
 
-            <Route element={<ProtectedRoute resource="books" action="view" />}>
-              <Route path="/books" element={<Books />} />
-              <Route path="/books/:id" element={<BookDetail />} />
+            {/* Borrow/Return flows */}
+            <Route
+              element={<ProtectedRoute resource="circulation" action="manage" />}
+            >
+              <Route path="/borrow" element={<Borrow />} />
+              <Route path="/return" element={<Return />} />
             </Route>
 
+            {/* Management pages */}
+            <Route
+              element={<ProtectedRoute resource="members" action="view" />}
+            >
+              <Route path="/manage-members" element={<ManageMembers />} />
+              <Route path="/manage-members/:id" element={<ManageMemberDetail />} />
+            </Route>
+
+            <Route element={<ProtectedRoute resource="books" action="view" />}>
+              <Route path="/manage-books" element={<ManageBooks />} />
+              <Route path="/manage-books/:id" element={<ManageBookDetail />} />
+            </Route>
+
+            {/* View-only pages */}
             <Route
               element={<ProtectedRoute resource="members" action="view" />}
             >
@@ -42,15 +65,17 @@ function App() {
               <Route path="/members/:id" element={<MemberDetail />} />
             </Route>
 
+            <Route element={<ProtectedRoute resource="books" action="view" />}>
+              <Route path="/books" element={<Books />} />
+              <Route path="/books/:id" element={<BookDetail />} />
+            </Route>
+
+            {/* Legacy circulation page (can be removed later) */}
             <Route
-              element={
-                <ProtectedRoute resource="circulation" action="manage" />
-              }
+              element={<ProtectedRoute resource="circulation" action="manage" />}
             >
               <Route path="/circulation" element={<Circulation />} />
             </Route>
-
-
 
             <Route
               element={<ProtectedRoute resource="members" action="create" />}

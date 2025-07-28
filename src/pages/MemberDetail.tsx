@@ -8,6 +8,7 @@ import { getBookById } from '../services/bookService';
 import { getMemberBorrowHistory } from '../services/memberService';
 
 const MemberDetail: React.FC = () => {
+  console.log('MemberDetail component rendering');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [member, setMember] = useState<Member | null>(null);
@@ -23,11 +24,16 @@ const MemberDetail: React.FC = () => {
 
   useEffect(() => {
     const loadMemberData = async () => {
+      console.log('loadMemberData function called');
+      
       if (id) {
+        console.log('Member ID exists:', id);
         try {
           const memberData = await getMemberById(id);
+          console.log('Member data received:', memberData);
           
           if (memberData) {
+            console.log('Setting member data...');
             setMember(memberData);
             setEditedMember({
               name: memberData.name,
@@ -35,11 +41,15 @@ const MemberDetail: React.FC = () => {
               apartmentNumber: memberData.apartmentNumber,
             });
             
+            console.log('About to fetch borrowed books...');
             // Get borrowed books details
             const books: Book[] = [];
             if (memberData.borrowedBooks && Array.isArray(memberData.borrowedBooks)) {
+              console.log('Borrowed books array:', memberData.borrowedBooks);
               for (const bookId of memberData.borrowedBooks) {
+                console.log('Fetching book:', bookId);
                 const book = await getBookById(bookId);
+                console.log('Book result:', book);
                 if (book) {
                   books.push(book);
                 }
@@ -47,15 +57,21 @@ const MemberDetail: React.FC = () => {
             }
             setBorrowedBooks(books);
             
+            console.log('About to fetch borrow history...');
             // Get borrow history
             const history = await getMemberBorrowHistory(id);
+            console.log('Borrow history:', history);
+            
             const historyWithBooks = await Promise.all(
               history.map(async (record) => {
+                console.log('Processing history record:', record);
                 const book = await getBookById(record.bookId);
+                console.log('Book for history:', book);
                 return { record, book: book! };
               })
             );
             
+            console.log('Setting borrow history...');
             setBorrowHistory(historyWithBooks.filter(item => item.book !== undefined));
           }
         } catch (error) {
