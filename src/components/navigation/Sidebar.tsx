@@ -7,6 +7,8 @@ import {
   Home,
   X,
   UserCog,
+  ArrowRight,
+  ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "../../contexts/useAuth";
 import PermissionGate from "../../components/PermissionGate";
@@ -63,22 +65,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <Home className="w-6 h-6 mr-3" />
             Home
           </NavLink>
-          <PermissionGate resource="members" action="view">
-            <NavLink to="/members" className={navLinkClass}>
-              <Users className="w-6 h-6 mr-3" />
-              Members
-            </NavLink>
-          </PermissionGate>
-          <NavLink to="/books" className={navLinkClass}>
-            <BookOpen className="w-6 h-6 mr-3" />
-            Books
-          </NavLink>
+          
           <PermissionGate resource="circulation" action="manage">
-            <NavLink to="/circulation" className={navLinkClass}>
-              <RotateCcw className="w-6 h-6 mr-3" />
-              Circulation
+            <NavLink to="/borrow" className={navLinkClass}>
+              <ArrowRight className="w-6 h-6 mr-3" />
+              Borrow
+            </NavLink>
+            <NavLink to="/return" className={navLinkClass}>
+              <ArrowLeft className="w-6 h-6 mr-3" />
+              Return
             </NavLink>
           </PermissionGate>
+          
+          <PermissionGate resource="members" action="view">
+            <NavLink to="/manage-members" className={navLinkClass}>
+              <Users className="w-6 h-6 mr-3" />
+              Manage Members
+            </NavLink>
+          </PermissionGate>
+          
+          <NavLink to="/manage-books" className={navLinkClass}>
+            <BookOpen className="w-6 h-6 mr-3" />
+            Manage Books
+          </NavLink>
 
           <PermissionGate resource="members" action="create">
             <NavLink to="/admin" className={navLinkClass}>

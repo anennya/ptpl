@@ -39,6 +39,8 @@ export const getAllMembers = async (): Promise<Member[]> => {
 
 // Get member by ID
 export const getMemberById = async (id: string): Promise<Member | null> => {
+  console.log('getMemberById called with ID:', id);
+  
   const { data, error } = await supabase
     .from('members')
     .select('*')
@@ -50,6 +52,8 @@ export const getMemberById = async (id: string): Promise<Member | null> => {
     return null;
   }
   
+  console.log('Member data found:', data);
+  
   // Get active loans for this member
   const { data: loans, error: loansError } = await supabase
     .from('loans')
@@ -57,12 +61,14 @@ export const getMemberById = async (id: string): Promise<Member | null> => {
     .eq('member_id', id)
     .is('returned_on', null);
     
+  console.log('Loans query result:', { loans, loansError });
+    
   if (loansError) {
     console.error('Error fetching loans:', loansError);
     throw loansError;
   }
   
-  return {
+  const result = {
     id: data.id,
     name: data.name || '',
     phone: data.mobile_number || '',
@@ -71,6 +77,9 @@ export const getMemberById = async (id: string): Promise<Member | null> => {
     borrowHistory: [],
     fines: parseFloat(data.total_amount_due) || 0
   };
+  
+  console.log('Final member result:', result);
+  return result;
 };
 
 // Search members
