@@ -4,6 +4,8 @@ export interface Member {
   name: string;
   phone: string;
   apartmentNumber: string;
+  email?: string; // Add email field
+  paymentReceived?: string; // Add payment received field
   borrowedBooks: string[];
   borrowHistory: BorrowRecord[];
   fines: number;
