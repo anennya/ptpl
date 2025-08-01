@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Users, Phone, MapPin } from 'lucide-react';
+import { Search, Plus, Users, Phone, MapPin, X, Check } from 'lucide-react';
 import { Member } from '../types';
-import { getAllMembers, searchMembers } from '../services/memberService';
+import { getAllMembers, searchMembers, addMember } from '../services/memberService';
 
 const ManageMembers: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
@@ -10,6 +10,18 @@ const ManageMembers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Add these new state variables for the modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Update the newMember state to include paymentReceived
+  const [newMember, setNewMember] = useState({
+    name: '',
+    phone: '',
+    apartmentNumber: '',
+    email: '',
+    paymentReceived: '',
+  });
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     loadMembers();
@@ -58,6 +70,30 @@ const ManageMembers: React.FC = () => {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewMember(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      await addMember(newMember);
+      setNewMember({ name: '', phone: '', apartmentNumber: '', email: '', paymentReceived: '' }); // Reset paymentReceived too
+      setIsAddModalOpen(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      loadMembers();
+    } catch (err) {
+      console.error('Error adding member:', err);
+      setError('Failed to add member. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (error) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -75,13 +111,13 @@ const ManageMembers: React.FC = () => {
             <p className="text-lg text-gray-600">Add, edit, and view member details</p>
           </div>
           
-          <Link 
-            to="/admin"
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
             className="btn btn-primary inline-flex items-center justify-center"
           >
             <Plus className="h-5 w-5 mr-2" />
             <span>Add New Member</span>
-          </Link>
+          </button>
         </div>
 
         {/* Search */}
@@ -173,13 +209,13 @@ const ManageMembers: React.FC = () => {
               }
             </p>
             {!searchQuery && (
-              <Link 
-                to="/admin"
+              <button 
+                onClick={() => setIsAddModalOpen(true)}
                 className="btn btn-primary inline-flex items-center"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 <span>Add First Member</span>
-              </Link>
+              </button>
             )}
           </div>
         )}
@@ -188,6 +224,121 @@ const ManageMembers: React.FC = () => {
         {filteredMembers.length > 0 && (
           <div className="text-center text-gray-500">
             Showing {filteredMembers.length} of {members.length} members
+          </div>
+        )}
+
+        {/* Add Member Modal */}
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold">Add New Member</h3>
+                <button
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleAddMember} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newMember.name}
+                    onChange={handleInputChange}
+                    className="input-field w-full"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={newMember.phone}
+                    onChange={handleInputChange}
+                    className="input-field w-full"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={newMember.email}
+                    onChange={handleInputChange}
+                    className="input-field w-full"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Received
+                  </label>
+                  <input
+                    type="text"
+                    name="paymentReceived"
+                    value={newMember.paymentReceived}
+                    onChange={handleInputChange}
+                    className="input-field w-full"
+                    placeholder="e.g., ₹500, $50, etc."
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Apartment Number
+                  </label>
+                  <input
+                    type="text"
+                    name="apartmentNumber"
+                    value={newMember.apartmentNumber}
+                    onChange={handleInputChange}
+                    className="input-field w-full"
+                    required
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="btn btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary flex-1"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Adding...' : 'Add Member'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {showSuccess && (
+          <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2">
+            <Check className="h-5 w-5" />
+            <span>Member added successfully!</span>
           </div>
         )}
       </div>

@@ -124,13 +124,20 @@ export const searchMembers = async (query: string): Promise<Member[]> => {
 
 // Add new member
 export const addMember = async (member: Omit<Member, 'id' | 'borrowedBooks' | 'borrowHistory' | 'fines'>): Promise<Member> => {
+  // Get current user (admin) ID
+  const { data: { user } } = await supabase.auth.getUser();
+  
   const { data, error } = await supabase
     .from('members')
     .insert([{
       name: member.name,
       mobile_number: member.phone,
       flat_number: member.apartmentNumber,
-      membership_status: 'PENDING',
+      email: member.email,
+      payment_received: member.paymentReceived,
+      membership_status: 'APPROVED',
+      membership_date: new Date().toISOString(),
+      approved_by_id: user?.id || null,
       total_amount_due: 0
     }])
     .select()
