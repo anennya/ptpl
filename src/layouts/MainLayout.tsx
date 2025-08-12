@@ -1,48 +1,41 @@
-import React, { useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
-import Sidebar from "../components/navigation/Sidebar";
-import Header from "../components/navigation/Header";
-import { useAuth } from "../contexts/useAuth";
+import React, { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import Header from '../components/navigation/Header';
+import Sidebar from '../components/navigation/Sidebar';
 
 const MainLayout: React.FC = () => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Redirect to login if not authenticated
-  React.useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
+  const handleMenuClick = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        Loading...
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null; // Will redirect in the useEffect
-  }
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false);
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={handleSidebarClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <Sidebar onClose={handleSidebarClose} />
+      </div>
 
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Header toggleSidebar={toggleSidebar} />
-
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 px-4 py-4 md:px-6 md:py-6 safe-bottom">
-          <div className="fade-in">
-            <Outlet />
-          </div>
+      {/* Main content */}
+      <div className="lg:ml-64">
+        <Header onMenuClick={handleMenuClick} />
+        <main className="p-4 lg:p-6">
+          <Outlet />
         </main>
       </div>
     </div>

@@ -3,30 +3,31 @@ import { Menu } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface HeaderProps {
-  toggleSidebar: () => void;
+  onMenuClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
-  const today = format(new Date(), 'EEEE, MMMM d, yyyy');
-  
+const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+  const currentDate = format(new Date(), 'EEEE, MMMM d, yyyy');
+  const currentTime = format(new Date(), 'h:mm a');
+
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 md:py-4 bg-white border-b border-gray-200 safe-top">
-      <div className="flex items-center">
+    <header className="bg-white shadow-sm border-b border-gray-200">
+      <div className="flex items-center px-2 py-1">
         <button
-          onClick={toggleSidebar}
-          className="p-2 -ml-2 mr-2 rounded-full text-gray-600 hover:bg-gray-100 active:bg-gray-200 lg:hidden touch-manipulation"
-          aria-label="Toggle menu"
+          onClick={onMenuClick}
+          className="p-1 rounded-md hover:bg-gray-100 transition-colors mr-2"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="h-4 w-4 text-gray-600" />
         </button>
-        
-        <div>
-          <h1 className="text-xl font-bold md:text-2xl line-clamp-1">Welcome to Prestige Tranquility People's Library</h1>
-          <p className="text-sm md:text-base text-gray-500">{today} | 5:00 PM - 7:00 PM</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-sm md:text-base font-semibold text-primary-600 leading-tight">
+            Prestige Tranquility People's Library
+          </h1>
+          <p className="text-xs text-gray-500">
+            {currentDate} | {currentTime}
+          </p>
         </div>
       </div>
-      
-
     </header>
   );
 };

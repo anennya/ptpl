@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, BookOpen, User, Calendar, X, Check, Camera, Grid, List } from 'lucide-react';
+import { Search, Plus, BookOpen, User, Calendar, X, Check, Camera, Grid, List, Phone, MapPin } from 'lucide-react';
 import { Book } from '../types';
 import { getAllBooks, searchBooks, addBook } from '../services/bookService';
 import { fetchBookByISBN } from '../services/bookApiService';
 import ISBNScanner from '../components/ISBNScanner';
+import { format } from 'date-fns';
 
 const ManageBooks: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -218,8 +219,9 @@ const ManageBooks: React.FC = () => {
     }
   };
 
+  // Update the grid view for better mobile responsiveness
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
       {filteredBooks.map(book => (
         <Link 
           key={book.id}
@@ -235,24 +237,24 @@ const ManageBooks: React.FC = () => {
               alt={book.title}
               className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-200"
             />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 lg:p-4">
               <span
-                className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(book.status)}`}
+                className={`px-2 py-1 text-xs lg:text-sm font-semibold rounded-full ${getStatusColor(book.status)}`}
               >
                 {book.status}
               </span>
             </div>
           </div>
-          <div className="p-4">
-            <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-primary-600">
+          <div className="p-3 lg:p-4">
+            <h3 className="text-base lg:text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-primary-600">
               {book.title}
             </h3>
-            <p className="text-gray-600 mt-1">{book.author}</p>
+            <p className="text-sm lg:text-base text-gray-600 mt-1">{book.author}</p>
             <div className="mt-2 flex items-center justify-between">
-              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getCategoryColor(book.category)}`}>
+              <span className={`px-2 py-1 text-xs lg:text-sm font-semibold rounded-full ${getCategoryColor(book.category)}`}>
                 {book.category}
               </span>
-              <span className="text-sm text-gray-500">
+              <span className="text-xs lg:text-sm text-gray-500">
                 {book.borrowCount} borrows
               </span>
             </div>
@@ -393,35 +395,35 @@ const ManageBooks: React.FC = () => {
 
         {/* Search and Filters */}
         <div className="card">
-          <form onSubmit={handleSearch} className="space-y-4">
+          <form onSubmit={handleSearch} className="space-y-3 lg:space-y-4">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Search books by title, author, or ISBN..."
-                className="input-field pl-10 w-full"
+                className="input-field pl-10 w-full text-sm lg:text-base"
                 value={searchQuery}
                 onChange={handleSearchInputChange}
                 disabled={isLoading}
               />
-              <Search className="absolute left-3 top-4 h-6 w-6 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 lg:h-5 lg:w-5 text-gray-400" />
               <button 
                 type="submit" 
-                className="btn btn-primary absolute right-1 top-1"
+                className="btn btn-primary absolute right-1 top-1 text-xs lg:text-sm"
                 disabled={isLoading}
               >
                 {isLoading ? 'Searching...' : 'Search'}
               </button>
             </div>
             
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-48">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as 'all' | 'Available' | 'Borrowed')}
-                  className="input-field"
+                  className="input-field text-sm lg:text-base"
                 >
                   <option value="all">All Status</option>
                   <option value="Available">Available</option>
@@ -429,14 +431,14 @@ const ManageBooks: React.FC = () => {
                 </select>
               </div>
               
-              <div className="flex-1 min-w-48">
+              <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="input-field"
+                  className="input-field text-sm lg:text-base"
                 >
                   <option value="all">All Categories</option>
                   <option value="Fiction">Fiction</option>
@@ -488,17 +490,9 @@ const ManageBooks: React.FC = () => {
 
         {/* Add Book Modal */}
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
-              <div
-                className="fixed inset-0 transition-opacity"
-                aria-hidden="true"
-              >
-                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-              </div>
-
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <form onSubmit={handleAddBook}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <form onSubmit={handleAddBook}>
                   <div className="bg-white px-6 pt-5 pb-4">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-2xl font-bold text-gray-900">
@@ -755,7 +749,6 @@ const ManageBooks: React.FC = () => {
                     </button>
                   </div>
                 </form>
-              </div>
             </div>
           </div>
         )}

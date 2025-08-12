@@ -1,58 +1,61 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Users, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Users, BookOpen } from 'lucide-react';
 
 const Home: React.FC = () => {
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">Welcome to Prestige Tranquility People's Library</h1>
-        <p className="text-xl text-gray-600">What would you like to do today?</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 p-4">
+      {/* Simple subtitle only */}
+      <div className="text-center mb-4">
+        <p className="text-lg md:text-xl text-gray-600">
+          What would you like to do today?
+        </p>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
+
+      {/* 2x2 Grid for mobile - all buttons visible */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
         <Link 
           to="/borrow"
-          className="card group hover:shadow-lg transition-shadow p-8 text-center flex flex-col items-center space-y-4"
+          className="group bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-4 text-center hover:scale-105"
         >
-          <div className="p-4 rounded-full bg-green-100 text-green-600 group-hover:bg-green-200 transition-colors">
-            <ArrowRight className="w-8 h-8" />
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition-colors">
+            <ArrowRight className="w-6 h-6 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold">Borrow</h2>
-          <p className="text-gray-600">Issue books to library members</p>
+          <h3 className="text-base font-bold text-gray-900 mb-1">Borrow</h3>
+          <p className="text-xs text-gray-600">Issue books</p>
         </Link>
 
         <Link 
           to="/return"
-          className="card group hover:shadow-lg transition-shadow p-8 text-center flex flex-col items-center space-y-4"
+          className="group bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-4 text-center hover:scale-105"
         >
-          <div className="p-4 rounded-full bg-blue-100 text-blue-600 group-hover:bg-blue-200 transition-colors">
-            <ArrowLeft className="w-8 h-8" />
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition-colors">
+            <ArrowLeft className="w-6 h-6 text-blue-600" />
           </div>
-          <h2 className="text-xl font-bold">Return</h2>
-          <p className="text-gray-600">Return books from library members</p>
+          <h3 className="text-base font-bold text-gray-900 mb-1">Return</h3>
+          <p className="text-xs text-gray-600">Return books</p>
         </Link>
 
         <Link 
           to="/manage-members"
-          className="card group hover:shadow-lg transition-shadow p-8 text-center flex flex-col items-center space-y-4"
+          className="group bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-4 text-center hover:scale-105"
         >
-          <div className="p-4 rounded-full bg-primary-100 text-primary-600 group-hover:bg-primary-200 transition-colors">
-            <Users className="w-8 h-8" />
+          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-200 transition-colors">
+            <Users className="w-6 h-6 text-purple-600" />
           </div>
-          <h2 className="text-xl font-bold">Manage Members</h2>
-          <p className="text-gray-600">Add, edit, or view member details</p>
+          <h3 className="text-base font-bold text-gray-900 mb-1">Members</h3>
+          <p className="text-xs text-gray-600">Manage members</p>
         </Link>
 
         <Link 
           to="/manage-books"
-          className="card group hover:shadow-lg transition-shadow p-8 text-center flex flex-col items-center space-y-4"
+          className="group bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-4 text-center hover:scale-105"
         >
-          <div className="p-4 rounded-full bg-purple-100 text-purple-600 group-hover:bg-purple-200 transition-colors">
-            <BookOpen className="w-8 h-8" />
+          <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition-colors">
+            <BookOpen className="w-6 h-6 text-orange-600" />
           </div>
-          <h2 className="text-xl font-bold">Manage Books</h2>
-          <p className="text-gray-600">Add, edit, or view book catalog</p>
+          <h3 className="text-base font-bold text-gray-900 mb-1">Books</h3>
+          <p className="text-xs text-gray-600">Manage books</p>
         </Link>
       </div>
     </div>
