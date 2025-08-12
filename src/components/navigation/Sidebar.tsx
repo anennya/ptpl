@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { X, ArrowRight, ArrowLeft, Users, BookOpen } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, Users, BookOpen, Home } from 'lucide-react';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -29,6 +29,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
+        <NavLink to="/" className={navLinkClass} onClick={onClose}>
+          <Home className="h-5 w-5" />
+          <span>Home</span>
+        </NavLink>
+        
         <NavLink to="/borrow" className={navLinkClass} onClick={onClose}>
           <ArrowRight className="h-5 w-5" />
           <span>Borrow</span>
