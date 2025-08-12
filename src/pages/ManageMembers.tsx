@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Users, Phone, MapPin, X, Check, Grid, List, Calendar } from 'lucide-react';
+import { Search, Plus, Users, Phone, MapPin, Calendar, X, Check, Grid, List } from 'lucide-react';
 import { Member } from '../types';
 import { getAllMembers, searchMembers, addMember } from '../services/memberService';
 import { format } from 'date-fns';
@@ -9,20 +9,18 @@ const ManageMembers: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid'); // Add view mode state
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Add these new state variables for the modal
+  // Modal state variables
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  // Update the newMember state to use membershipDate
   const [newMember, setNewMember] = useState({
     name: '',
     phone: '',
     apartmentNumber: '',
     email: '',
     paymentReceived: '',
-    membershipDate: new Date().toISOString().split('T')[0], // Use existing column name
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -34,8 +32,6 @@ const ManageMembers: React.FC = () => {
     try {
       setIsLoading(true);
       const data = await getAllMembers();
-      console.log('Members data in ManageMembers:', data); // Add this debug log
-      console.log('First member membershipDate:', data[0]?.membershipDate); // Add this debug log
       setMembers(data);
       setFilteredMembers(data);
     } catch (err) {
@@ -71,7 +67,7 @@ const ManageMembers: React.FC = () => {
     setSearchQuery(query);
     
     if (!query.trim()) {
-      setFilteredMembers(members);
+      loadMembers();
     }
   };
 
@@ -91,8 +87,7 @@ const ManageMembers: React.FC = () => {
         phone: '', 
         apartmentNumber: '', 
         email: '', 
-        paymentReceived: '',
-        membershipDate: new Date().toISOString().split('T')[0]
+        paymentReceived: ''
       });
       setIsAddModalOpen(false);
       setShowSuccess(true);
@@ -106,62 +101,53 @@ const ManageMembers: React.FC = () => {
     }
   };
 
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-xl text-red-500">{error}</p>
-      </div>
-    );
-  }
-
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
       {filteredMembers.map(member => (
         <Link 
           key={member.id}
           to={`/manage-members/${member.id}`}
           className="card hover:shadow-lg transition-shadow duration-200 group"
         >
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
-                <Users className="w-6 h-6 text-primary-600" />
+          <div className="flex items-start justify-between mb-3 lg:mb-4">
+            <div className="flex items-center space-x-2 lg:space-x-3">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
+                <Users className="w-5 h-5 lg:w-6 lg:h-6 text-primary-600" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-primary-900 group-hover:text-primary-700 transition-colors">
+                <h3 className="text-lg lg:text-xl font-bold text-primary-900 group-hover:text-primary-700 transition-colors">
                   {member.name}
                 </h3>
-                <p className="text-gray-600">Member</p>
+                <p className="text-sm text-gray-600">Member</p>
               </div>
             </div>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-2 lg:space-y-3">
             <div className="flex items-center text-gray-600">
               <Phone className="h-4 w-4 mr-2" />
-              <span>{member.phone}</span>
+              <span className="text-sm lg:text-base">{member.phone}</span>
             </div>
             
             <div className="flex items-center text-gray-600">
               <MapPin className="h-4 w-4 mr-2" />
-              <span>Apartment {member.apartmentNumber}</span>
-            </div>
-
-            <div className="flex items-center text-gray-600">
-              <Calendar className="h-4 w-4 mr-2" />
-              <span>Joined {(() => {
-                console.log('Rendering date for:', member.name, 'membershipDate:', member.membershipDate); // Debug log
-                return member.membershipDate ? format(new Date(member.membershipDate), 'dd MMM yyyy') : 'N/A';
-              })()}</span>
+              <span className="text-sm lg:text-base">Apartment {member.apartmentNumber}</span>
             </div>
             
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-              <div className="flex items-center space-x-4">
-                <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
+            <div className="flex items-center text-gray-600">
+              <Calendar className="h-4 w-4 mr-2" />
+              <span className="text-sm lg:text-base">
+                Joined {member.membershipDate ? format(new Date(member.membershipDate), 'dd MMM yyyy') : 'N/A'}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between pt-2 lg:pt-3 border-t border-gray-100">
+              <div className="flex items-center space-x-2 lg:space-x-4">
+                <span className="px-2 py-1 text-xs lg:text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
                   {member.borrowedBooks.length}/2 Books
                 </span>
                 {member.fines > 0 && (
-                  <span className="px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
+                  <span className="px-2 py-1 text-xs lg:text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
                     ₹{member.fines} Fine
                   </span>
                 )}
@@ -180,64 +166,64 @@ const ManageMembers: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-primary-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 lg:px-6 py-3 text-left text-xs lg:text-sm font-medium text-gray-500 uppercase tracking-wider">
                   Member
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 lg:px-6 py-3 text-left text-xs lg:text-sm font-medium text-gray-500 uppercase tracking-wider">
                   Contact
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Books Borrowed
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fines
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="hidden md:table-cell px-3 lg:px-6 py-3 text-left text-xs lg:text-sm font-medium text-gray-500 uppercase tracking-wider">
                   Date Joined
+                </th>
+                <th scope="col" className="px-3 lg:px-6 py-3 text-left text-xs lg:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  Books
+                </th>
+                <th scope="col" className="px-3 lg:px-6 py-3 text-left text-xs lg:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  Fines
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredMembers.map(member => (
                 <tr key={member.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap">
                     <Link 
                       to={`/manage-members/${member.id}`}
-                      className="flex items-center space-x-3 group"
+                      className="flex items-center space-x-2 lg:space-x-3 group"
                     >
-                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                        <Users className="w-5 h-5 text-primary-600" />
+                      <div className="flex-shrink-0 w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                        <Users className="w-4 h-4 lg:w-5 lg:h-5 text-primary-600" />
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900 group-hover:text-primary-600">
+                        <div className="text-sm lg:text-base font-medium text-gray-900 group-hover:text-primary-600">
                           {member.name}
                         </div>
-                        <div className="text-sm text-gray-500">Apartment {member.apartmentNumber}</div>
+                        <div className="text-xs lg:text-sm text-gray-500">Apartment {member.apartmentNumber}</div>
                       </div>
                     </Link>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member.phone}</div>
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm lg:text-base text-gray-900">{member.phone}</div>
                     {member.email && (
-                      <div className="text-sm text-gray-500">{member.email}</div>
+                      <div className="text-xs lg:text-sm text-gray-500">{member.email}</div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
-                      {member.borrowedBooks.length}/2 Books
+                  <td className="hidden md:table-cell px-3 lg:px-6 py-4 whitespace-nowrap text-sm lg:text-base text-gray-500">
+                    {member.membershipDate ? format(new Date(member.membershipDate), 'dd MMM yyyy') : 'N/A'}
+                  </td>
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 py-1 text-xs lg:text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
+                      {member.borrowedBooks.length}/2
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap">
                     {member.fines > 0 ? (
-                      <span className="px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
+                      <span className="px-2 py-1 text-xs lg:text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
                         ₹{member.fines}
                       </span>
                     ) : (
                       <span className="text-gray-500">-</span>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {member.membershipDate ? format(new Date(member.membershipDate), 'dd MMM yyyy') : 'N/A'}
                   </td>
                 </tr>
               ))}
@@ -247,6 +233,14 @@ const ManageMembers: React.FC = () => {
       </div>
     </div>
   );
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-xl text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in">
@@ -421,20 +415,6 @@ const ManageMembers: React.FC = () => {
                     onChange={handleInputChange}
                     className="input-field w-full"
                     placeholder="e.g., ₹500, $50, etc."
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Membership Date
-                  </label>
-                  <input
-                    type="date"
-                    name="membershipDate"
-                    value={newMember.membershipDate}
-                    onChange={handleInputChange}
-                    className="input-field w-full"
                     required
                   />
                 </div>
