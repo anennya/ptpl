@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Users, Phone, MapPin, X, Check } from 'lucide-react';
+import { Search, Plus, Users, Phone, MapPin, X, Check, Grid, List, Calendar } from 'lucide-react';
 import { Member } from '../types';
 import { getAllMembers, searchMembers, addMember } from '../services/memberService';
+import { format } from 'date-fns';
 
 const ManageMembers: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid'); // Add view mode state
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Add these new state variables for the modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  // Update the newMember state to include paymentReceived
+  // Update the newMember state to use membershipDate
   const [newMember, setNewMember] = useState({
     name: '',
     phone: '',
     apartmentNumber: '',
     email: '',
     paymentReceived: '',
+    membershipDate: new Date().toISOString().split('T')[0], // Use existing column name
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -31,6 +34,8 @@ const ManageMembers: React.FC = () => {
     try {
       setIsLoading(true);
       const data = await getAllMembers();
+      console.log('Members data in ManageMembers:', data); // Add this debug log
+      console.log('First member membershipDate:', data[0]?.membershipDate); // Add this debug log
       setMembers(data);
       setFilteredMembers(data);
     } catch (err) {
@@ -81,7 +86,14 @@ const ManageMembers: React.FC = () => {
     setError(null);
     try {
       await addMember(newMember);
-      setNewMember({ name: '', phone: '', apartmentNumber: '', email: '', paymentReceived: '' }); // Reset paymentReceived too
+      setNewMember({ 
+        name: '', 
+        phone: '', 
+        apartmentNumber: '', 
+        email: '', 
+        paymentReceived: '',
+        membershipDate: new Date().toISOString().split('T')[0]
+      });
       setIsAddModalOpen(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -102,6 +114,140 @@ const ManageMembers: React.FC = () => {
     );
   }
 
+  const renderGridView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {filteredMembers.map(member => (
+        <Link 
+          key={member.id}
+          to={`/manage-members/${member.id}`}
+          className="card hover:shadow-lg transition-shadow duration-200 group"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
+                <Users className="w-6 h-6 text-primary-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-primary-900 group-hover:text-primary-700 transition-colors">
+                  {member.name}
+                </h3>
+                <p className="text-gray-600">Member</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center text-gray-600">
+              <Phone className="h-4 w-4 mr-2" />
+              <span>{member.phone}</span>
+            </div>
+            
+            <div className="flex items-center text-gray-600">
+              <MapPin className="h-4 w-4 mr-2" />
+              <span>Apartment {member.apartmentNumber}</span>
+            </div>
+
+            <div className="flex items-center text-gray-600">
+              <Calendar className="h-4 w-4 mr-2" />
+              <span>Joined {(() => {
+                console.log('Rendering date for:', member.name, 'membershipDate:', member.membershipDate); // Debug log
+                return member.membershipDate ? format(new Date(member.membershipDate), 'dd MMM yyyy') : 'N/A';
+              })()}</span>
+            </div>
+            
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <div className="flex items-center space-x-4">
+                <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
+                  {member.borrowedBooks.length}/2 Books
+                </span>
+                {member.fines > 0 && (
+                  <span className="px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
+                    ₹{member.fines} Fine
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+
+  const renderListView = () => (
+    <div className="overflow-x-auto">
+      <div className="inline-block min-w-full align-middle">
+        <div className="overflow-hidden shadow-md rounded-xl">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-primary-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Member
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Contact
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Books Borrowed
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fines
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date Joined
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMembers.map(member => (
+                <tr key={member.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Link 
+                      to={`/manage-members/${member.id}`}
+                      className="flex items-center space-x-3 group"
+                    >
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                        <Users className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-primary-600">
+                          {member.name}
+                        </div>
+                        <div className="text-sm text-gray-500">Apartment {member.apartmentNumber}</div>
+                      </div>
+                    </Link>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member.phone}</div>
+                    {member.email && (
+                      <div className="text-sm text-gray-500">{member.email}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
+                      {member.borrowedBooks.length}/2 Books
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {member.fines > 0 ? (
+                      <span className="px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
+                        ₹{member.fines}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {member.membershipDate ? format(new Date(member.membershipDate), 'dd MMM yyyy') : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="fade-in">
       <div className="flex flex-col space-y-6">
@@ -111,13 +257,41 @@ const ManageMembers: React.FC = () => {
             <p className="text-lg text-gray-600">Add, edit, and view member details</p>
           </div>
           
-          <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="btn btn-primary inline-flex items-center justify-center"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            <span>Add New Member</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="Grid View"
+              >
+                <Grid className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="List View"
+              >
+                <List className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="btn btn-primary inline-flex items-center justify-center"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              <span>Add New Member</span>
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -142,60 +316,13 @@ const ManageMembers: React.FC = () => {
           </form>
         </div>
 
-        {/* Members Grid */}
+        {/* Members Display */}
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <p className="text-xl text-gray-500">Loading members...</p>
           </div>
         ) : filteredMembers.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMembers.map(member => (
-              <Link 
-                key={member.id}
-                to={`/manage-members/${member.id}`}
-                className="card hover:shadow-lg transition-shadow duration-200 group"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
-                      <Users className="w-6 h-6 text-primary-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-primary-900 group-hover:text-primary-700 transition-colors">
-                        {member.name}
-                      </h3>
-                      <p className="text-gray-600">Member</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center text-gray-600">
-                    <Phone className="h-4 w-4 mr-2" />
-                    <span>{member.phone}</span>
-                  </div>
-                  
-                  <div className="flex items-center text-gray-600">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    <span>Apartment {member.apartmentNumber}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="flex items-center space-x-4">
-                      <span className="px-3 py-1 text-sm font-semibold rounded-full bg-primary-100 text-primary-800">
-                        {member.borrowedBooks.length}/2 Books
-                      </span>
-                      {member.fines > 0 && (
-                        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-accent-100 text-accent-800">
-                          ₹{member.fines} Fine
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          viewMode === 'grid' ? renderGridView() : renderListView()
         ) : (
           <div className="text-center py-16">
             <Users className="h-16 w-16 mx-auto text-gray-400 mb-4" />
@@ -280,7 +407,6 @@ const ManageMembers: React.FC = () => {
                     value={newMember.email}
                     onChange={handleInputChange}
                     className="input-field w-full"
-                    required
                   />
                 </div>
                 
@@ -295,6 +421,20 @@ const ManageMembers: React.FC = () => {
                     onChange={handleInputChange}
                     className="input-field w-full"
                     placeholder="e.g., ₹500, $50, etc."
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Membership Date
+                  </label>
+                  <input
+                    type="date"
+                    name="membershipDate"
+                    value={newMember.membershipDate}
+                    onChange={handleInputChange}
+                    className="input-field w-full"
                     required
                   />
                 </div>
