@@ -33,7 +33,8 @@ export const getAllMembers = async (): Promise<Member[]> => {
       ? loans.filter(loan => loan.member_id === member.id).map(loan => loan.book_id)
       : [],
     borrowHistory: [],
-    fines: parseFloat(member.total_amount_due) || 0
+    fines: parseFloat(member.total_amount_due) || 0,
+    membershipDate: member.membership_date
   }));
 };
 
@@ -75,7 +76,8 @@ export const getMemberById = async (id: string): Promise<Member | null> => {
     apartmentNumber: data.flat_number || '',
     borrowedBooks: loans ? loans.map(loan => loan.book_id) : [],
     borrowHistory: [],
-    fines: parseFloat(data.total_amount_due) || 0
+    fines: parseFloat(data.total_amount_due) || 0,
+    membershipDate: data.membership_date
   };
   
   console.log('Final member result:', result);
@@ -127,16 +129,18 @@ export const addMember = async (member: Omit<Member, 'id' | 'borrowedBooks' | 'b
   // Get current user (admin) ID
   const { data: { user } } = await supabase.auth.getUser();
   
+  const today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  
   const { data, error } = await supabase
     .from('members')
     .insert([{
       name: member.name,
       mobile_number: member.phone,
       flat_number: member.apartmentNumber,
-      email: member.email,
+      email: member.email || null, // Make email optional
       payment_received: member.paymentReceived,
       membership_status: 'APPROVED',
-      membership_date: new Date().toISOString(),
+      membership_date: today,
       approved_by_id: user?.id || null,
       total_amount_due: 0
     }])
@@ -153,6 +157,9 @@ export const addMember = async (member: Omit<Member, 'id' | 'borrowedBooks' | 'b
     name: data.name,
     phone: data.mobile_number,
     apartmentNumber: data.flat_number,
+    email: data.email,
+    paymentReceived: data.payment_received,
+    membershipDate: data.membership_date,
     borrowedBooks: [],
     borrowHistory: [],
     fines: 0
@@ -220,8 +227,40 @@ export const deleteMember = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// Pay or waive fine
+// Update the updateMemberFine function to use the fines table
 export const updateMemberFine = async (id: string, amount: number, isWaive: boolean = false): Promise<Member | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (isWaive) {
+    // Create a waived fine record
+    await supabase
+      .from('fines')
+      .insert([{
+        member_id: id,
+        days_overdue: 1, // Default value for waived fines
+        fine_amount: amount,
+        is_paid: false,
+        waived: true,
+        waived_reason: 'Waived by admin',
+        cleared_by: user?.id || null,
+        recorded_on: new Date().toISOString()
+      }]);
+  } else {
+    // Create a paid fine record
+    await supabase
+      .from('fines')
+      .insert([{
+        member_id: id,
+        days_overdue: 1, // Default value for paid fines
+        fine_amount: amount,
+        is_paid: true,
+        waived: false,
+        cleared_by: user?.id || null,
+        recorded_on: new Date().toISOString()
+      }]);
+  }
+
+  // Update the member's total amount due
   const { data: member, error: memberError } = await supabase
     .from('members')
     .select('total_amount_due')
@@ -230,32 +269,32 @@ export const updateMemberFine = async (id: string, amount: number, isWaive: bool
     
   if (memberError || !member) {
     console.error('Error fetching member:', memberError);
-    return null;
+    throw memberError;
   }
-  
-  const currentFine = parseFloat(member.total_amount_due) || 0;
-  const newFine = isWaive ? 0 : Math.max(0, currentFine - amount);
-  
-  const { data, error } = await supabase
+
+  const currentAmount = parseFloat(member.total_amount_due || '0');
+  const newAmount = isWaive ? currentAmount - amount : currentAmount - amount;
+
+  const { data: updatedMember, error: updateError } = await supabase
     .from('members')
-    .update({ total_amount_due: newFine })
+    .update({ total_amount_due: Math.max(0, newAmount).toString() })
     .eq('id', id)
     .select()
     .single();
     
-  if (error || !data) {
-    console.error('Error updating fine:', error);
-    return null;
+  if (updateError || !updatedMember) {
+    console.error('Error updating member:', updateError);
+    throw updateError;
   }
-  
+
   return {
-    id: data.id,
-    name: data.name,
-    phone: data.mobile_number,
-    apartmentNumber: data.flat_number,
-    borrowedBooks: [], // We'll need to fetch this from loans table
-    borrowHistory: [], // We'll need to fetch this from loans table
-    fines: parseFloat(data.total_amount_due) || 0
+    id: updatedMember.id,
+    name: updatedMember.name,
+    phone: updatedMember.mobile_number,
+    apartmentNumber: updatedMember.flat_number,
+    borrowedBooks: [],
+    borrowHistory: [],
+    fines: parseFloat(updatedMember.total_amount_due) || 0
   };
 };
 

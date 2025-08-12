@@ -6,6 +6,7 @@ export interface Member {
   apartmentNumber: string;
   email?: string; // Add email field
   paymentReceived?: string; // Add payment received field
+  membershipDate?: string; // Keep as string since DB column is text
   borrowedBooks: string[];
   borrowHistory: BorrowRecord[];
   fines: number;
@@ -17,13 +18,21 @@ export interface Book {
   title: string;
   author: string;
   isbn: string;
-  category: string; // Changed from enum to string to match database
+  category: string;
   status: 'Available' | 'Borrowed' | 'Reserved' | 'Lost';
   borrowedBy?: string; // Phone number (for backward compatibility)
   borrowedByMemberId?: string; // Member ID (UUID) - new field
   dueDate?: Date;
   borrowCount: number;
   coverUrl?: string;
+  
+  // Additional fields from the schema
+  bookNumber?: string;
+  language?: string;
+  price?: string;
+  publisher?: string;
+  donatedBy?: string;
+  storageLocation?: string;
 }
 
 // Circulation types
@@ -31,6 +40,8 @@ export interface BorrowRecord {
   id: string;
   bookId: string;
   memberId: string;
+  memberName?: string; // Add member name
+  memberPhone?: string; // Add member phone for reference
   borrowDate: Date;
   dueDate: Date;
   returnDate?: Date;
